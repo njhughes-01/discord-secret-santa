@@ -40,19 +40,36 @@ export function createApp(customDb?: DatabaseInstance) {
   app.disable('x-powered-by');
 
   // Security Middleware & Shield Headers
+  const enableStrictSecurity = process.env.ENABLE_STRICT_SECURITY_HEADERS === 'true';
+
   app.use(helmet({
-    contentSecurityPolicy: false, // Allows Vite React SPA scripts to execute on mobile & LAN
+    contentSecurityPolicy: enableStrictSecurity ? {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"], // Vite React client SPA bundle
+        styleSrc: ["'self'", "'unsafe-inline'"],  // Tailwind inline styles
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+      },
+    } : false, // Disabled for local HTTP LAN testing to prevent mobile asset blocking
     referrerPolicy: { policy: 'same-origin' },
     frameguard: { action: 'deny' },
     noSniff: true,
     crossOriginEmbedderPolicy: false,
-    crossOriginOpenerPolicy: false,
-    crossOriginResourcePolicy: false,
+    crossOriginOpenerPolicy: enableStrictSecurity ? { policy: 'same-origin' } : false,
+    crossOriginResourcePolicy: enableStrictSecurity ? { policy: 'same-origin' } : false,
   }));
 
-  // Extra Security Headers (Permissions Policy)
+  // Extra Security Headers (Permissions Policy & COEP)
   app.use((req: Request, res: Response, next: NextFunction) => {
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+    if (enableStrictSecurity) {
+      res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
+    }
     next();
   });
 

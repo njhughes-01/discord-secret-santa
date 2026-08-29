@@ -11,6 +11,8 @@ services:
     # ZERO EXPOSED HOST PORTS: Port 3000 is internal-only to santa-net Docker network
     environment:
       - PORT=3000
+      - HOST=0.0.0.0
+      - ENABLE_STRICT_SECURITY_HEADERS=${ENABLE_STRICT_SECURITY_HEADERS:-true}
       - ADMIN_PASSCODE=${ADMIN_PASSCODE:-admin123}
       - SIGNUP_PASSCODE=${SIGNUP_PASSCODE:-santa2026}
       - SIGNUP_DEADLINE=${SIGNUP_DEADLINE:-2026-12-15T23:59:59Z}
