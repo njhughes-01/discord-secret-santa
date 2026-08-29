@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import crypto from 'node:crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { DatabaseInstance } from './db.js';
 import { logAudit } from './logger.js';
@@ -7,7 +8,43 @@ interface DbSettingRow {
   value: string;
 }
 
+export function verifyDiscordRequestSignature(req: Request): boolean {
+  const publicKeyHex = process.env.DISCORD_PUBLIC_KEY;
+  if (!publicKeyHex) return true; // If DISCORD_PUBLIC_KEY is not configured, bypass for local testing
+
+  const signature = req.headers['x-signature-ed25519'] as string;
+  const timestamp = req.headers['x-signature-timestamp'] as string;
+  const body = (req as any).rawBody || JSON.stringify(req.body);
+
+  if (!signature || !timestamp || !body) return false;
+
+  try {
+    const message = Buffer.from(timestamp + body, 'utf-8');
+    const signatureBuffer = Buffer.from(signature, 'hex');
+    const keyBuffer = Buffer.from(publicKeyHex, 'hex');
+
+    // Node 24 native Ed25519 public key parsing (ASN.1 DER header for Ed25519)
+    const publicKey = crypto.createPublicKey({
+      key: Buffer.concat([
+        Buffer.from('302a300506032b6570032100', 'hex'),
+        keyBuffer,
+      ]),
+      format: 'der',
+      type: 'spki',
+    });
+
+    return crypto.verify(null, message, publicKey, signatureBuffer);
+  } catch (err) {
+    return false;
+  }
+}
+
 export function handleDiscordInteractions(req: Request, res: Response, db: DatabaseInstance) {
+  // Validate Discord Ed25519 signature if DISCORD_PUBLIC_KEY is configured
+  if (!verifyDiscordRequestSignature(req)) {
+    return res.status(401).send('Invalid request signature');
+  }
+
   const { type, data, member, user } = req.body;
   const discordUser = member?.user || user;
   const discordId = discordUser?.id || '';

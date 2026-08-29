@@ -75,7 +75,11 @@ export function createApp(customDb?: DatabaseInstance) {
 
   app.use(antiRobotMiddleware);
   app.use(cors({ origin: true, credentials: true }));
-  app.use(express.json());
+  app.use(express.json({
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf.toString('utf-8');
+    }
+  }));
   app.use(cookieParser());
 
   // General API Rate Limiting

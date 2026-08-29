@@ -17,8 +17,7 @@ import {
   Check,
   DollarSign,
   Radio,
-  Send,
-  HelpCircle
+  Send
 } from 'lucide-react';
 import { Participant, Match, TrackingInfo, AuditLog } from '../../shared/types';
 import { DiscordSetupGuide } from './DiscordSetupGuide';
@@ -367,7 +366,7 @@ export const AdminDashboard: React.FC = () => {
             }`}
           >
             <Radio className="w-4 h-4 text-indigo-300" />
-            <span>Discord Setup Guide</span>
+            <span>Discord Integration & Settings</span>
           </button>
 
           <button
@@ -387,7 +386,7 @@ export const AdminDashboard: React.FC = () => {
             }`}
           >
             <SettingsIcon className="w-4 h-4" />
-            <span>Settings</span>
+            <span>Event Settings</span>
           </button>
         </div>
 
@@ -526,7 +525,14 @@ export const AdminDashboard: React.FC = () => {
       )}
 
       {activeTab === 'discord' && (
-        <DiscordSetupGuide />
+        <DiscordSetupGuide
+          newWebhookUrl={newWebhookUrl}
+          setNewWebhookUrl={setNewWebhookUrl}
+          onSaveWebhook={handleUpdateSettings}
+          onTestWebhook={handleTestWebhook}
+          testWebhookStatus={testWebhookStatus}
+          settingsStatus={settingsStatus}
+        />
       )}
 
       {activeTab === 'audit' && (
@@ -585,13 +591,6 @@ export const AdminDashboard: React.FC = () => {
             </div>
           )}
 
-          {testWebhookStatus && (
-            <div className="p-3 bg-slate-900 border border-indigo-500/60 rounded-xl text-indigo-300 text-xs flex items-center space-x-2">
-              <Send className="w-4 h-4 text-indigo-400" />
-              <span>{testWebhookStatus}</span>
-            </div>
-          )}
-
           <form onSubmit={handleUpdateSettings} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
@@ -630,30 +629,6 @@ export const AdminDashboard: React.FC = () => {
                 value={newGiftBudget}
                 onChange={(e) => setNewGiftBudget(e.target.value)}
                 className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm"
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center space-x-1">
-                  <Radio className="w-3.5 h-3.5 text-red-400" />
-                  <span>Discord Announcement Webhook URL</span>
-                </label>
-                <button
-                  type="button"
-                  onClick={handleTestWebhook}
-                  className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center space-x-1"
-                >
-                  <Send className="w-3 h-3" />
-                  <span>Test Connection</span>
-                </button>
-              </div>
-              <input
-                type="url"
-                placeholder="https://discord.com/api/webhooks/..."
-                value={newWebhookUrl}
-                onChange={(e) => setNewWebhookUrl(e.target.value)}
-                className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm placeholder-slate-600"
               />
             </div>
 

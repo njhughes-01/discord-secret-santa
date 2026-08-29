@@ -8,11 +8,12 @@ services:
       dockerfile: Dockerfile
     container_name: secret-santa-app
     restart: unless-stopped
-    # ZERO EXPOSED HOST PORTS: Port 3000 is internal-only to santa-net Docker network
+    ports:
+      - "3000:3000"
     environment:
       - PORT=3000
       - HOST=0.0.0.0
-      - ENABLE_STRICT_SECURITY_HEADERS=${ENABLE_STRICT_SECURITY_HEADERS:-true}
+      - ENABLE_STRICT_SECURITY_HEADERS=${ENABLE_STRICT_SECURITY_HEADERS:-false}
       - ADMIN_PASSCODE=${ADMIN_PASSCODE:-admin123}
       - SIGNUP_PASSCODE=${SIGNUP_PASSCODE:-santa2026}
       - SIGNUP_DEADLINE=${SIGNUP_DEADLINE:-2026-12-15T23:59:59Z}
@@ -28,7 +29,7 @@ services:
     container_name: cloudflared-tunnel
     restart: unless-stopped
     environment:
-      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:-dummy_token}
     command: tunnel --no-autoupdate run
     networks:
       - santa-net
