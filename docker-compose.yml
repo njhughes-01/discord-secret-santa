@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   secret-santa:
-    image: ghcr.io/lightmedia-club/discord-secret-santa:latest
+    image: ghcr.io/njhughes-01/discord-secret-santa:latest
     build:
       context: .
       dockerfile: Dockerfile
