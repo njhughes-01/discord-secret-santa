@@ -41,46 +41,23 @@ export function createApp(customDb?: DatabaseInstance) {
 
   // Security Middleware & Shield Headers
   app.use(helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"], // Vite React client SPA bundle
-        styleSrc: ["'self'", "'unsafe-inline'"],  // Tailwind inline styles
-        imgSrc: ["'self'", "data:", "https:"],
-        connectSrc: ["'self'"],
-        fontSrc: ["'self'"],
-        objectSrc: ["'none'"],
-        mediaSrc: ["'none'"],
-        frameAncestors: ["'none'"],
-      },
-    },
+    contentSecurityPolicy: false, // Allows Vite React SPA scripts to execute on mobile & LAN
     referrerPolicy: { policy: 'same-origin' },
     frameguard: { action: 'deny' },
     noSniff: true,
-    crossOriginEmbedderPolicy: false, // Allow local asset loading
-    crossOriginOpenerPolicy: { policy: 'same-origin' },
-    crossOriginResourcePolicy: { policy: 'same-origin' },
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: false,
+    crossOriginResourcePolicy: false,
   }));
 
-  // Extra Security Headers (Permissions Policy & COEP)
+  // Extra Security Headers (Permissions Policy)
   app.use((req: Request, res: Response, next: NextFunction) => {
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
-    res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
     next();
   });
 
   app.use(antiRobotMiddleware);
-  app.use(cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, curl, samedomain) or localhost/LAN
-      if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('lightmedia.club') || /^http:\/\/(192\.168|10|172\.(1[6-9]|2[0-9]|3[0-1]))\./.test(origin)) {
-        callback(null, true);
-      } else {
-        callback(null, false);
-      }
-    },
-    credentials: true,
-  }));
+  app.use(cors({ origin: true, credentials: true }));
   app.use(express.json());
   app.use(cookieParser());
 
