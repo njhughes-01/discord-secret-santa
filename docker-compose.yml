@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  secret-santa:
+    image: ghcr.io/lightmedia-club/discord-secret-santa:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: secret-santa-app
+    restart: unless-stopped
+    # ZERO EXPOSED HOST PORTS: Port 3000 is internal-only to santa-net Docker network
+    environment:
+      - PORT=3000
+      - ADMIN_PASSCODE=${ADMIN_PASSCODE:-admin123}
+      - SIGNUP_PASSCODE=${SIGNUP_PASSCODE:-santa2026}
+      - SIGNUP_DEADLINE=${SIGNUP_DEADLINE:-2026-12-15T23:59:59Z}
+      - GIFT_BUDGET=${GIFT_BUDGET:-$25 - $50}
+      - DB_PATH=/app/data/secret_santa.db
+    volumes:
+      - santa-data:/app/data
+    networks:
+      - santa-net
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-tunnel
+    restart: unless-stopped
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    command: tunnel --no-autoupdate run
+    networks:
+      - santa-net
+
+volumes:
+  santa-data:
+
+networks:
+  santa-net:
+    driver: bridge
