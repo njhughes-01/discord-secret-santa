@@ -64,6 +64,7 @@ export const AdminDashboard: React.FC = () => {
   const [newPublicKey, setNewPublicKey] = useState('');
   const [newAppId, setNewAppId] = useState('');
   const [newBotToken, setNewBotToken] = useState('');
+  const [newChannelId, setNewChannelId] = useState('');
   const [settingsStatus, setSettingsStatus] = useState<string | null>(null);
   const [testWebhookStatus, setTestWebhookStatus] = useState<string | null>(null);
   const [registerStatus, setRegisterStatus] = useState<string | null>(null);
@@ -86,41 +87,33 @@ export const AdminDashboard: React.FC = () => {
       const res = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ passcode: adminPasscode }),
+        body: JSON.stringify({ passcode: adminPasscode.trim() }),
       });
 
       const data = await res.json();
       if (data.success && data.token) {
-        setAdminToken(data.token);
         localStorage.setItem('admin_token', data.token);
+        setAdminToken(data.token);
         setAdminPasscode('');
       } else {
         setLoginError(data.error || 'Invalid admin passcode.');
       }
     } catch (err) {
-      setLoginError('Failed to connect to server.');
+      setLoginError('Failed to authenticate.');
     }
   };
 
   const handleLogout = () => {
-    if (adminToken) {
-      fetch('/api/admin/logout', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${adminToken}` },
-      }).catch(() => {});
-    }
-    setAdminToken(null);
     localStorage.removeItem('admin_token');
+    setAdminToken(null);
   };
 
   const fetchAdminData = async () => {
     if (!adminToken) return;
     setLoading(true);
+    const headers = { Authorization: `Bearer ${adminToken}` };
 
     try {
-      const headers = { Authorization: `Bearer ${adminToken}` };
-
-      // Fetch current settings for settings/discord tabs
       if (activeTab === 'settings' || activeTab === 'discord') {
         const sRes = await fetch('/api/admin/settings', { headers });
         if (sRes.status === 401) {
@@ -134,6 +127,7 @@ export const AdminDashboard: React.FC = () => {
           setNewPublicKey(sData.data.discordPublicKey || '');
           setNewAppId(sData.data.discordAppId || '');
           setNewBotToken(sData.data.discordBotToken || '');
+          setNewChannelId(sData.data.discordChannelId || '');
           setNewDeadline(isoToLocalDatetimeString(sData.data.signupDeadline || ''));
           setNewGiftBudget(sData.data.giftBudget || '');
         }
@@ -240,6 +234,7 @@ export const AdminDashboard: React.FC = () => {
           discordPublicKey: newPublicKey !== undefined ? newPublicKey : undefined,
           discordAppId: newAppId !== undefined ? newAppId : undefined,
           discordBotToken: newBotToken !== undefined ? newBotToken : undefined,
+          discordChannelId: newChannelId !== undefined ? newChannelId : undefined,
         }),
       });
 
@@ -660,6 +655,8 @@ export const AdminDashboard: React.FC = () => {
           setNewAppId={setNewAppId}
           newBotToken={newBotToken}
           setNewBotToken={setNewBotToken}
+          newChannelId={newChannelId}
+          setNewChannelId={setNewChannelId}
           onSaveDiscordSettings={handleUpdateSettings}
           onTestWebhook={handleTestWebhook}
           onRegisterCommands={handleRegisterCommands}

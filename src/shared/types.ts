@@ -62,6 +62,7 @@ export interface AppSettings {
   discordPublicKey?: string;
   discordAppId?: string;
   discordBotToken?: string;
+  discordChannelId?: string;
 }
 
 export interface ParticipantPortalData {

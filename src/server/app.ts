@@ -717,6 +717,7 @@ export function createApp(customDb?: DatabaseInstance) {
           discordPublicKey: getSetting('discord_public_key')?.value || '',
           discordAppId: getSetting('discord_app_id')?.value || '',
           discordBotToken: getSetting('discord_bot_token')?.value || '',
+          discordChannelId: getSetting('discord_channel_id')?.value || '',
         }
       });
     } catch (err) {
@@ -728,7 +729,7 @@ export function createApp(customDb?: DatabaseInstance) {
   app.put('/api/admin/settings', requireAdminAuth, (req: Request, res: Response, next: NextFunction) => {
     try {
       const db = getAppDb();
-      const { signupPasscode, adminPasscode, signupDeadline, giftBudget, discordWebhookUrl, discordPublicKey, discordAppId, discordBotToken } = req.body;
+      const { signupPasscode, adminPasscode, signupDeadline, giftBudget, discordWebhookUrl, discordPublicKey, discordAppId, discordBotToken, discordChannelId } = req.body;
 
       const upsert = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
 
@@ -757,6 +758,9 @@ export function createApp(customDb?: DatabaseInstance) {
         }
         if (discordBotToken !== undefined) {
           upsert.run('discord_bot_token', String(discordBotToken).trim());
+        }
+        if (discordChannelId !== undefined) {
+          upsert.run('discord_channel_id', String(discordChannelId).trim());
         }
       })();
 

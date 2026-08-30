@@ -203,6 +203,20 @@ export async function handleDiscordInteractions(req: Request, res: Response, db:
     ? `${discordUser.username}${discordUser.discriminator && discordUser.discriminator !== '0' ? '#' + discordUser.discriminator : ''}`
     : 'Unknown';
 
+  // 3. Optional Allowed Channel ID enforcement
+  const allowedChannelId = (db ? (db.prepare('SELECT value FROM settings WHERE key = ?').get('discord_channel_id') as DbSettingRow)?.value : '') || '';
+  const currentChannelId = req.body.channel_id || req.body.channel?.id;
+
+  if (allowedChannelId && currentChannelId && currentChannelId !== allowedChannelId) {
+    return res.json({
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE || 4,
+      data: {
+        flags: 64, // EPHEMERAL
+        content: `🔒 **Secret Santa commands can only be used in <#${allowedChannelId}>!** Please head over to <#${allowedChannelId}> to participate in Secret Santa. 🎅`,
+      },
+    });
+  }
+
   // Type 2 (APPLICATION_COMMAND): Slash Commands (/secret-santa)
   if (type === InteractionType.APPLICATION_COMMAND || type === 2) {
     const commandName = data?.name;
