@@ -1,6 +1,6 @@
 {
   "name": "discord-secret-santa",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "description": "Secure, self-setting-up Secret Santa application for Discord servers",
   "main": "dist/server/index.js",
   "type": "module",
