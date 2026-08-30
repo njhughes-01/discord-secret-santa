@@ -19,6 +19,7 @@ execSync('npx tailwindcss -i src/client/src/index.css -o dist/client/assets/styl
 
 // 4. Create Production HTML
 console.log('📄 Generating Production index.html...');
+const versionHash = Date.now().toString(36);
 const htmlContent = `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -28,11 +29,11 @@ const htmlContent = `<!DOCTYPE html>
     <meta name="googlebot" content="noindex, nofollow" />
     <title>Discord Secret Santa</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎁</text></svg>" />
-    <link rel="stylesheet" href="/assets/style.css" />
+    <link rel="stylesheet" href="/assets/style.css?v=${versionHash}" />
   </head>
   <body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased selection:bg-red-500 selection:text-white">
     <div id="root"></div>
-    <script type="module" src="/assets/main.js"></script>
+    <script type="module" src="/assets/main.js?v=${versionHash}"></script>
   </body>
 </html>`;
 

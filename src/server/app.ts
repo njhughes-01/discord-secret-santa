@@ -50,10 +50,10 @@ export function createApp(customDb?: DatabaseInstance) {
     contentSecurityPolicy: enableStrictSecurity ? {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"], // Vite React client SPA bundle
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://static.cloudflareinsights.com"], // Vite React client SPA bundle & Cloudflare Analytics
         styleSrc: ["'self'", "'unsafe-inline'"],  // Tailwind inline styles
         imgSrc: ["'self'", "data:", "https:"],
-        connectSrc: ["'self'"],
+        connectSrc: ["'self'", "https://cloudflareinsights.com"],
         fontSrc: ["'self'"],
         objectSrc: ["'none'"],
         mediaSrc: ["'none'"],
@@ -793,6 +793,7 @@ export function createApp(customDb?: DatabaseInstance) {
   app.use(express.static(clientDistPath));
   app.get(new RegExp('^/(.*)$'), (req: Request, res: Response) => {
     if (!req.path.startsWith('/api')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.sendFile(path.join(clientDistPath, 'index.html'), (err) => {
         if (err) {
           res.status(404).send('Not Found');
