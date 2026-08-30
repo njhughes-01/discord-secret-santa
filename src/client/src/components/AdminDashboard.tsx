@@ -17,7 +17,8 @@ import {
   Check,
   DollarSign,
   Radio,
-  Send
+  Send,
+  Gift
 } from 'lucide-react';
 import { Participant, Match, TrackingInfo, AuditLog } from '../../shared/types';
 import { DiscordSetupGuide } from './DiscordSetupGuide';
@@ -773,12 +774,24 @@ export const AdminDashboard: React.FC = () => {
                 onChange={(e) => setNewDeadline(e.target.value)}
                 className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
               />
-              {newDeadline && !isNaN(new Date(newDeadline).getTime()) && (
-                <div className="mt-1.5 p-2 bg-slate-900/80 border border-slate-700/60 rounded-lg text-[11px] font-mono space-y-0.5">
-                  <div className="text-amber-300">📍 Local Time: <strong>{new Date(newDeadline).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short', timeZoneName: 'short' })}</strong> ({Intl.DateTimeFormat().resolvedOptions().timeZone})</div>
-                  <div className="text-slate-400">🌐 UTC Stored: {new Date(newDeadline).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' })} UTC</div>
-                </div>
-              )}
+              {(() => {
+                if (!newDeadline) return null;
+                try {
+                  const d = new Date(newDeadline);
+                  if (isNaN(d.getTime())) return null;
+                  const local = d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+                  const utc = d.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }) + ' UTC';
+                  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local';
+                  return (
+                    <div className="mt-1.5 p-2 bg-slate-900/80 border border-slate-700/60 rounded-lg text-[11px] font-mono space-y-0.5">
+                      <div className="text-amber-300">📍 Local Time: <strong>{local}</strong> ({tz})</div>
+                      <div className="text-slate-400">🌐 UTC Stored: {utc}</div>
+                    </div>
+                  );
+                } catch (e) {
+                  return null;
+                }
+              })()}
             </div>
 
             <button

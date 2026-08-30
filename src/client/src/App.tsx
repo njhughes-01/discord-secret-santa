@@ -8,6 +8,44 @@ import { PasscodeGate } from './components/PasscodeGate';
 import { AppSettings } from '../shared/types';
 import { HeartHandshake, Lock } from 'lucide-react';
 
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: string }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: '' };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error: error?.message || 'Unknown error' };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error('ErrorBoundary caught an error:', error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="bg-red-950/80 border border-red-800 rounded-2xl p-6 text-center space-y-4 max-w-xl mx-auto my-8">
+          <h3 className="text-lg font-bold text-red-300">Something went wrong rendering this page</h3>
+          <p className="text-xs text-red-200 font-mono bg-black/40 p-3 rounded-lg text-left overflow-x-auto">
+            {this.state.error}
+          </p>
+          <button
+            onClick={() => {
+              this.setState({ hasError: false, error: '' });
+              window.location.reload();
+            }}
+            className="px-4 py-2 bg-red-700 hover:bg-red-600 text-white text-xs font-semibold rounded-xl transition-all"
+          >
+            Reload Page
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<'signup' | 'portal' | 'tracking' | 'admin'>('signup');
   const [eventPasscode, setEventPasscode] = useState<string | null>(() => localStorage.getItem('event_passcode'));
@@ -44,30 +82,32 @@ export default function App() {
       />
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {!eventPasscode && activeTab !== 'admin' ? (
-          <PasscodeGate
-            onSuccess={handlePasscodeSuccess}
-            onAdminClick={() => setActiveTab('admin')}
-          />
-        ) : (
-          <>
-            {activeTab === 'signup' && (
-              <SignupForm settings={settings} onSignupSuccess={fetchSettings} />
-            )}
+        <ErrorBoundary>
+          {!eventPasscode && activeTab !== 'admin' ? (
+            <PasscodeGate
+              onSuccess={handlePasscodeSuccess}
+              onAdminClick={() => setActiveTab('admin')}
+            />
+          ) : (
+            <>
+              {activeTab === 'signup' && (
+                <SignupForm settings={settings} onSignupSuccess={fetchSettings} />
+              )}
 
-            {activeTab === 'portal' && (
-              <ParticipantPortal />
-            )}
+              {activeTab === 'portal' && (
+                <ParticipantPortal />
+              )}
 
-            {activeTab === 'tracking' && (
-              <TrackingForm />
-            )}
+              {activeTab === 'tracking' && (
+                <TrackingForm />
+              )}
 
-            {activeTab === 'admin' && (
-              <AdminDashboard />
-            )}
-          </>
-        )}
+              {activeTab === 'admin' && (
+                <AdminDashboard />
+              )}
+            </>
+          )}
+        </ErrorBoundary>
       </main>
 
       <footer className="bg-slate-950 border-t border-slate-800 py-6 text-center text-xs text-slate-500 space-y-2">

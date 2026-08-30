@@ -76,20 +76,23 @@ export const SignupForm: React.FC<SignupFormProps> = ({ settings, onSignupSucces
   };
 
   const deadlineInfo = settings?.signupDeadline ? (() => {
-    const d = new Date(settings.signupDeadline);
-    if (isNaN(d.getTime())) return null;
-    const local = d.toLocaleString(undefined, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-      timeZoneName: 'short',
-    });
-    const utc = d.toLocaleString('en-US', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-      timeZone: 'UTC',
-    }) + ' UTC';
-    const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    return { local, utc, userTz };
+    try {
+      const d = new Date(settings.signupDeadline);
+      if (isNaN(d.getTime())) return null;
+      const local = d.toLocaleString(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      });
+      const utc = d.toLocaleString('en-US', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        timeZone: 'UTC',
+      }) + ' UTC';
+      const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local';
+      return { local, utc, userTz };
+    } catch (err) {
+      return null;
+    }
   })() : null;
 
   return (
