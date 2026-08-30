@@ -254,6 +254,45 @@ export function createApp(customDb?: DatabaseInstance) {
     }
   });
 
+  // Check if handle is already registered for pre-populating Web form
+  app.get('/api/participant/check-handle', (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const handle = String(req.query.handle || '').trim();
+      if (!handle || handle.length < 2) return res.json({ success: true, exists: false });
+
+      const db = getAppDb();
+
+      const matchingCompleteRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('is_matching_complete') as DbSettingRow;
+      const isMatchingComplete = matchingCompleteRow?.value === 'true';
+
+      if (isMatchingComplete) {
+        return res.json({ success: true, exists: false, isLocked: true });
+      }
+
+      const existing = db.prepare(`
+        SELECT full_name as fullName, address, wishlist
+        FROM participants
+        WHERE LOWER(TRIM(discord_handle)) = LOWER(TRIM(?))
+      `).get(handle) as { fullName: string; address: string; wishlist: string } | undefined;
+
+      if (existing) {
+        return res.json({
+          success: true,
+          exists: true,
+          data: {
+            fullName: existing.fullName,
+            address: existing.address,
+            wishlist: existing.wishlist,
+          },
+        });
+      }
+
+      return res.json({ success: true, exists: false });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   // Participant Portal: Login / View Personal Dashboard
   app.post('/api/participant/login', honeypotTrap, (req: Request, res: Response, next: NextFunction) => {
     try {

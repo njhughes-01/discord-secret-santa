@@ -8,6 +8,15 @@ interface DbSettingRow {
   value: string;
 }
 
+interface DbParticipantRow {
+  id: string;
+  discord_id?: string;
+  discord_handle: string;
+  full_name: string;
+  address: string;
+  wishlist?: string;
+}
+
 export async function verifyDiscordRequestSignature(req: Request, db?: DatabaseInstance): Promise<boolean> {
   const dbPublicKey = db ? (db.prepare('SELECT value FROM settings WHERE key = ?').get('discord_public_key') as DbSettingRow)?.value : undefined;
   const publicKeyHex = (process.env.DISCORD_PUBLIC_KEY || dbPublicKey || '').trim();
@@ -52,6 +61,73 @@ export async function verifyDiscordRequestSignature(req: Request, db?: DatabaseI
   }
 }
 
+function buildSignupModal(existing?: DbParticipantRow) {
+  return {
+    type: InteractionResponseType.MODAL || 9,
+    data: {
+      custom_id: 'secret_santa_signup_modal',
+      title: existing ? 'Update Secret Santa Info 🎁' : 'Secret Santa Signup 🎁',
+      components: [
+        {
+          type: 1,
+          components: [
+            {
+              type: 4,
+              custom_id: 'full_name',
+              label: 'Full Name / Shipping Recipient Name',
+              style: 1,
+              required: true,
+              placeholder: 'John Doe',
+              value: existing?.full_name || '',
+            },
+          ],
+        },
+        {
+          type: 1,
+          components: [
+            {
+              type: 4,
+              custom_id: 'address',
+              label: 'Full Shipping Address',
+              style: 2,
+              required: true,
+              placeholder: '123 Elm St, Apt 4, City, State, Zip, Country',
+              value: existing?.address || '',
+            },
+          ],
+        },
+        {
+          type: 1,
+          components: [
+            {
+              type: 4,
+              custom_id: 'wishlist',
+              label: 'Wishlist & Preferences (Optional)',
+              style: 2,
+              required: false,
+              placeholder: 'Favorite colors, sizes, Steam wishlist link...',
+              value: existing?.wishlist || '',
+            },
+          ],
+        },
+        {
+          type: 1,
+          components: [
+            {
+              type: 4,
+              custom_id: 'passcode',
+              label: 'Event Signup Passcode',
+              style: 1,
+              required: true,
+              placeholder: 'Passcode provided by mod',
+            },
+          ],
+        },
+      ],
+    },
+  };
+}
+
 export async function handleDiscordInteractions(req: Request, res: Response, db: DatabaseInstance) {
   // 1. Ed25519 signature verification MUST run first on all incoming requests (including PING)
   if (!(await verifyDiscordRequestSignature(req, db))) {
@@ -80,68 +156,58 @@ export async function handleDiscordInteractions(req: Request, res: Response, db:
 
     if (commandName === 'secret-santa' || commandName === 'santa') {
       if (subCommand === 'signup') {
-        // Return Modal popup to Discord user
-        return res.json({
-          type: InteractionResponseType.MODAL || 9, // MODAL
-          data: {
-            custom_id: 'secret_santa_signup_modal',
-            title: 'Secret Santa Signup 🎁',
-            components: [
-              {
-                type: 1,
-                components: [
-                  {
-                    type: 4,
-                    custom_id: 'full_name',
-                    label: 'Full Name / Shipping Recipient Name',
-                    style: 1,
-                    required: true,
-                    placeholder: 'John Doe',
-                  },
-                ],
-              },
-              {
-                type: 1,
-                components: [
-                  {
-                    type: 4,
-                    custom_id: 'address',
-                    label: 'Full Shipping Address',
-                    style: 2,
-                    required: true,
-                    placeholder: '123 Elm St, Apt 4, City, State, Zip, Country',
-                  },
-                ],
-              },
-              {
-                type: 1,
-                components: [
-                  {
-                    type: 4,
-                    custom_id: 'wishlist',
-                    label: 'Wishlist & Preferences (Optional)',
-                    style: 2,
-                    required: false,
-                    placeholder: 'Favorite colors, sizes, Steam wishlist link...',
-                  },
-                ],
-              },
-              {
-                type: 1,
-                components: [
-                  {
-                    type: 4,
-                    custom_id: 'passcode',
-                    label: 'Event Signup Passcode',
-                    style: 1,
-                    required: true,
-                    placeholder: 'Passcode provided by mod',
-                  },
-                ],
-              },
-            ],
-          },
-        });
+        // Check if matches have already been generated for this year
+        const matchingCompleteRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('is_matching_complete') as DbSettingRow;
+        if (matchingCompleteRow && matchingCompleteRow.value === 'true') {
+          return res.json({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE || 4,
+            data: {
+              flags: 64, // EPHEMERAL
+              content: '🔒 Secret Santa matches have already been generated for this event! Registrations and updates are now locked.',
+            },
+          });
+        }
+
+        // Check if user is already registered
+        const existing = db.prepare(`
+          SELECT id, discord_id, discord_handle, full_name, address, wishlist
+          FROM participants
+          WHERE (discord_id IS NOT NULL AND discord_id = ?)
+             OR LOWER(TRIM(discord_handle)) = LOWER(TRIM(?))
+        `).get(discordId, discordHandle) as DbParticipantRow | undefined;
+
+        if (!existing) {
+          // Not registered yet -> Open blank modal directly
+          return res.json(buildSignupModal());
+        } else {
+          // Already registered -> Prompt with ephemeral confirmation message & interactive buttons
+          return res.json({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE || 4,
+            data: {
+              flags: 64, // EPHEMERAL
+              content: `🔒 **You are already registered for Secret Santa!**\n\nHere is your current registration information:\n• **Name**: ${existing.full_name}\n• **Address**: ${existing.address}\n• **Wishlist**: ${existing.wishlist || 'None'}\n\nWould you like to update your registration information?`,
+              components: [
+                {
+                  type: 1, // Action Row
+                  components: [
+                    {
+                      type: 2, // Button
+                      custom_id: 'update_info_yes',
+                      label: 'Yes, Update My Info ✏️',
+                      style: 1, // Primary (Blurple/Blue)
+                    },
+                    {
+                      type: 2, // Button
+                      custom_id: 'update_info_no',
+                      label: 'No, Keep Existing Details 🔒',
+                      style: 2, // Secondary (Grey)
+                    },
+                  ],
+                },
+              ],
+            },
+          });
+        }
       }
 
       // Default or /secret-santa status: Private Ephemeral Assignment Check
@@ -185,6 +251,45 @@ export async function handleDiscordInteractions(req: Request, res: Response, db:
           },
         });
       }
+    }
+  }
+
+  // Type 3 (MESSAGE_COMPONENT): Interactive Button Clicks
+  if (type === InteractionType.MESSAGE_COMPONENT || type === 3) {
+    const customId = data?.custom_id;
+
+    if (customId === 'update_info_no') {
+      return res.json({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE || 4,
+        data: {
+          flags: 64, // EPHEMERAL
+          content: '🔒 Your Secret Santa registration details remain unchanged. Happy Holidays! 🎅',
+        },
+      });
+    }
+
+    if (customId === 'update_info_yes') {
+
+      // Check if matches have already been generated for this year
+      const matchingCompleteRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('is_matching_complete') as DbSettingRow;
+      if (matchingCompleteRow && matchingCompleteRow.value === 'true') {
+        return res.json({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE || 4,
+          data: {
+            flags: 64, // EPHEMERAL
+            content: '🔒 Secret Santa matches have already been generated for this event! Profile updates are now locked.',
+          },
+        });
+      }
+
+      const existing = db.prepare(`
+        SELECT id, discord_id, discord_handle, full_name, address, wishlist
+        FROM participants
+        WHERE (discord_id IS NOT NULL AND discord_id = ?)
+           OR LOWER(TRIM(discord_handle)) = LOWER(TRIM(?))
+      `).get(discordId, discordHandle) as DbParticipantRow | undefined;
+
+      return res.json(buildSignupModal(existing));
     }
   }
 

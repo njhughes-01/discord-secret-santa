@@ -15,10 +15,32 @@ export const SignupForm: React.FC<SignupFormProps> = ({ settings, onSignupSucces
   const [passcode, setPasscode] = useState('');
   const [hpWebsite, setHpWebsite] = useState('');
   const [status, setStatus] = useState<{ type: 'idle' | 'loading' | 'success' | 'error'; message?: string }>({ type: 'idle' });
+  const [existingNotice, setExistingNotice] = useState<string | null>(null);
 
   const isDeadlinePassed = settings?.signupDeadline ? new Date() > new Date(settings.signupDeadline) : false;
   const isMatchingDone = settings?.isMatchingComplete;
   const isLocked = isDeadlinePassed || isMatchingDone;
+
+  const checkExistingHandle = async (handleVal: string) => {
+    const trimmed = handleVal.trim();
+    if (!trimmed || trimmed.length < 2) {
+      setExistingNotice(null);
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/participant/check-handle?handle=${encodeURIComponent(trimmed)}`);
+      const data = await res.json();
+      if (data.success && data.exists && data.data) {
+        setFullName(data.data.fullName || '');
+        setAddress(data.data.address || '');
+        setWishlist(data.data.wishlist || '');
+        setExistingNotice(`ℹ️ Existing registration found for @${trimmed}. Submitting will update your registration information.`);
+      } else {
+        setExistingNotice(null);
+      }
+    } catch (err) {}
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,6 +152,13 @@ export const SignupForm: React.FC<SignupFormProps> = ({ settings, onSignupSucces
               </div>
             )}
 
+            {existingNotice && (
+              <div className="p-4 bg-amber-950/80 border border-amber-500/50 rounded-xl text-amber-200 text-sm flex items-center space-x-3">
+                <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0" />
+                <span>{existingNotice}</span>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
@@ -143,6 +172,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ settings, onSignupSucces
                     placeholder="Username#1234 or @username"
                     value={discordHandle}
                     onChange={(e) => setDiscordHandle(e.target.value)}
+                    onBlur={() => checkExistingHandle(discordHandle)}
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm"
                   />
                 </div>
