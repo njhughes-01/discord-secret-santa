@@ -413,10 +413,10 @@ export function createApp(customDb?: DatabaseInstance) {
   app.post('/api/tracking', honeypotTrap, (req: Request, res: Response, next: NextFunction) => {
     try {
       const db = getAppDb();
-      const { discordHandle, passcode, carrier, trackingNumber } = req.body;
+      const { discordHandle, passcode, carrier, trackingNumber, shippedAt } = req.body;
 
-      if (!discordHandle || !passcode || !carrier || !trackingNumber) {
-        return res.status(400).json({ success: false, error: 'Discord handle, passcode, carrier, and tracking number are required.' });
+      if (!discordHandle || !passcode) {
+        return res.status(400).json({ success: false, error: 'Discord handle and passcode are required.' });
       }
 
       // Verify passcode
@@ -431,15 +431,19 @@ export function createApp(customDb?: DatabaseInstance) {
         return res.status(404).json({ success: false, error: 'No Secret Santa assignment found for this Discord handle yet.' });
       }
 
-      const existingTracking = db.prepare('SELECT id FROM tracking_info WHERE match_id = ?').get(match.id) as { id: string } | undefined;
+      const carrierVal = (carrier && String(carrier).trim()) ? String(carrier).trim() : 'Standard Post / Hand Delivered';
+      const trackingVal = (trackingNumber && String(trackingNumber).trim()) ? String(trackingNumber).trim() : 'N/A';
       const now = new Date().toISOString();
+      const shippedDate = (shippedAt && String(shippedAt).trim()) ? String(shippedAt).trim() : now;
+
+      const existingTracking = db.prepare('SELECT id FROM tracking_info WHERE match_id = ?').get(match.id) as { id: string } | undefined;
 
       if (existingTracking) {
         db.prepare(`
           UPDATE tracking_info
           SET carrier = ?, tracking_number = ?, shipped_at = ?
           WHERE id = ?
-        `).run(carrier, trackingNumber, now, existingTracking.id);
+        `).run(carrierVal, trackingVal, shippedDate, existingTracking.id);
 
         logAudit(db, 'TRACKING_UPDATED', `Tracking updated by ${discordHandle}`, req.ip);
       } else {
@@ -447,12 +451,12 @@ export function createApp(customDb?: DatabaseInstance) {
         db.prepare(`
           INSERT INTO tracking_info (id, match_id, giver_handle, carrier, tracking_number, shipped_at)
           VALUES (?, ?, ?, ?, ?, ?)
-        `).run(id, match.id, discordHandle, carrier, trackingNumber, now);
+        `).run(id, match.id, discordHandle, carrierVal, trackingVal, shippedDate);
 
         logAudit(db, 'TRACKING_ADDED', `Tracking added by ${discordHandle}`, req.ip);
       }
 
-      res.json({ success: true, message: 'Tracking information submitted successfully!' });
+      res.json({ success: true, message: 'Tracking & shipping information saved successfully!' });
     } catch (err) {
       next(err);
     }

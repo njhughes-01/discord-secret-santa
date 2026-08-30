@@ -35,6 +35,11 @@ export async function registerDiscordCommandsWithApi(
         description: 'Privately check your assigned Secret Santa recipient',
         type: 1,
       },
+      {
+        name: 'tracking',
+        description: 'Submit package tracking code and ship date for your gift recipient',
+        type: 1,
+      },
     ],
   };
 

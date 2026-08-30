@@ -128,6 +128,60 @@ function buildSignupModal(existing?: DbParticipantRow) {
   };
 }
 
+function buildTrackingModal(existing?: { carrier: string; tracking_number: string; shipped_at: string }) {
+  return {
+    type: InteractionResponseType.MODAL || 9,
+    data: {
+      custom_id: 'secret_santa_tracking_modal',
+      title: 'Submit Package Tracking 📦',
+      components: [
+        {
+          type: 1,
+          components: [
+            {
+              type: 4,
+              custom_id: 'carrier',
+              label: 'Shipping Carrier (e.g. USPS, UPS, FedEx)',
+              style: 1,
+              required: false,
+              placeholder: 'USPS, UPS, FedEx, Amazon, Hand Delivered...',
+              value: existing?.carrier || '',
+            },
+          ],
+        },
+        {
+          type: 1,
+          components: [
+            {
+              type: 4,
+              custom_id: 'tracking_number',
+              label: 'Tracking Number / Package Link',
+              style: 1,
+              required: false,
+              placeholder: '1Z9999999999999999 or tracking URL',
+              value: existing?.tracking_number || '',
+            },
+          ],
+        },
+        {
+          type: 1,
+          components: [
+            {
+              type: 4,
+              custom_id: 'shipped_at',
+              label: 'Ship Date / Est Delivery Date',
+              style: 1,
+              required: false,
+              placeholder: 'e.g. 2026-12-20 or Shipped Today',
+              value: existing?.shipped_at || '',
+            },
+          ],
+        },
+      ],
+    },
+  };
+}
+
 export async function handleDiscordInteractions(req: Request, res: Response, db: DatabaseInstance) {
   // 1. Ed25519 signature verification MUST run first on all incoming requests (including PING)
   if (!(await verifyDiscordRequestSignature(req, db))) {
@@ -210,6 +264,39 @@ export async function handleDiscordInteractions(req: Request, res: Response, db:
         }
       }
 
+      if (subCommand === 'tracking' || subCommand === 'ship') {
+        const matchingCompleteRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('is_matching_complete') as DbSettingRow;
+        if (!matchingCompleteRow || matchingCompleteRow.value !== 'true') {
+          return res.json({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE || 4,
+            data: {
+              flags: 64, // EPHEMERAL
+              content: '🔒 Secret Santa matches have not been generated yet! Package tracking can be submitted once matches are assigned.',
+            },
+          });
+        }
+
+        const match = db.prepare(`
+          SELECT id FROM matches
+          WHERE (giver_id IS NOT NULL AND giver_id = ?)
+             OR LOWER(TRIM(giver_handle)) = LOWER(TRIM(?))
+        `).get(discordId, discordHandle) as { id: string } | undefined;
+
+        if (!match) {
+          return res.json({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE || 4,
+            data: {
+              flags: 64, // EPHEMERAL
+              content: '🔒 No Secret Santa assignment found for your account.',
+            },
+          });
+        }
+
+        const existingTracking = db.prepare('SELECT carrier, tracking_number, shipped_at FROM tracking_info WHERE match_id = ?').get(match.id) as any;
+
+        return res.json(buildTrackingModal(existingTracking));
+      }
+
       // Default or /secret-santa status: Private Ephemeral Assignment Check
       const matchingCompleteRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('is_matching_complete') as DbSettingRow;
       const isMatchingComplete = matchingCompleteRow?.value === 'true';
@@ -222,16 +309,21 @@ export async function handleDiscordInteractions(req: Request, res: Response, db:
 
       const effectiveHandle = participant ? participant.discord_handle : discordHandle;
 
-      const match = isMatchingComplete
-        ? db.prepare('SELECT receiver_name, receiver_handle, receiver_address, receiver_wishlist FROM matches WHERE LOWER(TRIM(giver_handle)) = LOWER(TRIM(?))').get(effectiveHandle) as any
-        : null;
+      const userMatches = isMatchingComplete
+        ? db.prepare('SELECT receiver_name, receiver_handle, receiver_address, receiver_wishlist FROM matches WHERE LOWER(TRIM(giver_handle)) = LOWER(TRIM(?))').all(effectiveHandle) as any[]
+        : [];
 
-      if (match) {
+      if (userMatches && userMatches.length > 0) {
+        const recipientTexts = userMatches.map((match, idx) => {
+          const prefix = userMatches.length > 1 ? `🎁 **Recipient #${idx + 1}**:` : `🎁 **Recipient**:`;
+          return `${prefix} ${match.receiver_name} (@${match.receiver_handle})\n📍 **Shipping Address**:\n\`\`\`\n${match.receiver_address}\n\`\`\`\n❤️ **Wishlist & Preferences**: ${match.receiver_wishlist || 'None specified'}`;
+        }).join('\n\n---\n\n');
+
         return res.json({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE || 4,
           data: {
             flags: 64, // EPHEMERAL (Only caller sees this message)
-            content: `🔒 **Private Secret Santa Assignment** (Only visible to you):\n\n🎁 **Recipient**: ${match.receiver_name} (@${match.receiver_handle})\n📍 **Shipping Address**:\n\`\`\`\n${match.receiver_address}\n\`\`\`\n❤️ **Wishlist & Preferences**: ${match.receiver_wishlist || 'None specified'}`,
+            content: `🔒 **Private Secret Santa Assignment** (Only visible to you):\n\n${recipientTexts}`,
           },
         });
       } else if (isMatchingComplete) {
@@ -372,6 +464,62 @@ export async function handleDiscordInteractions(req: Request, res: Response, db:
           data: {
             flags: 64, // EPHEMERAL
             content: '🔒 🎉 Successfully signed up for Secret Santa directly inside Discord! Your details are stored securely.',
+          },
+        });
+      }
+    }
+
+    if (customId === 'secret_santa_tracking_modal') {
+      const getVal = (cid: string) => {
+        for (const row of data.components || []) {
+          for (const comp of row.components || []) {
+            if (comp.custom_id === cid) return comp.value;
+          }
+        }
+        return '';
+      };
+
+      const carrier = String(getVal('carrier')).trim() || 'Standard Delivery / Hand Delivered';
+      const trackingNumber = String(getVal('tracking_number')).trim() || 'N/A';
+      const shippedAt = String(getVal('shipped_at')).trim() || new Date().toISOString().split('T')[0];
+
+      const match = db.prepare(`
+        SELECT id FROM matches
+        WHERE (giver_id IS NOT NULL AND giver_id = ?)
+           OR LOWER(TRIM(giver_handle)) = LOWER(TRIM(?))
+      `).get(discordId, discordHandle) as { id: string } | undefined;
+
+      if (!match) {
+        return res.json({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE || 4,
+          data: {
+            flags: 64, // EPHEMERAL
+            content: '🔒 ❌ No active Secret Santa match assignment found for your account.',
+          },
+        });
+      }
+
+      const existing = db.prepare('SELECT id FROM tracking_info WHERE match_id = ?').get(match.id);
+
+      if (existing) {
+        db.prepare('UPDATE tracking_info SET carrier = ?, tracking_number = ?, shipped_at = ? WHERE match_id = ?').run(carrier, trackingNumber, shippedAt, match.id);
+        logAudit(db, 'DISCORD_TRACKING_UPDATE', `Participant ${discordHandle} (ID: ${discordId}) updated tracking via Discord Modal`, req.ip);
+        return res.json({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE || 4,
+          data: {
+            flags: 64, // EPHEMERAL
+            content: `🔒 ✅ Package tracking details updated directly inside Discord!\n📦 **Carrier**: ${carrier}\n🚚 **Tracking**: \`${trackingNumber}\` \n📅 **Ship Date**: ${shippedAt}`,
+          },
+        });
+      } else {
+        const id = uuidv4();
+        db.prepare('INSERT INTO tracking_info (id, match_id, giver_handle, carrier, tracking_number, shipped_at) VALUES (?, ?, ?, ?, ?, ?)').run(id, match.id, discordHandle, carrier, trackingNumber, shippedAt);
+        logAudit(db, 'DISCORD_TRACKING_ADD', `Participant ${discordHandle} (ID: ${discordId}) submitted tracking via Discord Modal`, req.ip);
+        return res.json({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE || 4,
+          data: {
+            flags: 64, // EPHEMERAL
+            content: `🔒 🎉 Package tracking details saved directly inside Discord!\n📦 **Carrier**: ${carrier}\n🚚 **Tracking**: \`${trackingNumber}\` \n📅 **Ship Date**: ${shippedAt}`,
           },
         });
       }

@@ -34,6 +34,7 @@ export const ParticipantPortal: React.FC = () => {
   // Tracking form state
   const [carrier, setCarrier] = useState('');
   const [trackingNumber, setTrackingNumber] = useState('');
+  const [shippedAt, setShippedAt] = useState('');
   const [trackingStatus, setTrackingStatus] = useState<{ type: 'idle' | 'loading' | 'success' | 'error'; message?: string }>({ type: 'idle' });
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -61,8 +62,9 @@ export const ParticipantPortal: React.FC = () => {
         setEditAddress(data.data.participant.address);
         setEditWishlist(data.data.participant.wishlist || '');
         if (data.data.trackingInfo) {
-          setCarrier(data.data.trackingInfo.carrier);
-          setTrackingNumber(data.data.trackingInfo.trackingNumber);
+          setCarrier(data.data.trackingInfo.carrier || '');
+          setTrackingNumber(data.data.trackingInfo.trackingNumber || '');
+          setShippedAt(data.data.trackingInfo.shippedAt || '');
         }
         setLoginStatus({ type: 'idle' });
       } else {
@@ -126,6 +128,7 @@ export const ParticipantPortal: React.FC = () => {
           passcode: passcode.trim(),
           carrier: carrier.trim(),
           trackingNumber: trackingNumber.trim(),
+          shippedAt: shippedAt.trim(),
         }),
       });
 
@@ -319,13 +322,12 @@ export const ParticipantPortal: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={handleSubmitTracking} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <form onSubmit={handleSubmitTracking} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Carrier</label>
+                <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Carrier (Optional)</label>
                 <input
                   type="text"
-                  required
-                  placeholder="USPS, UPS, FedEx, etc."
+                  placeholder="USPS, UPS, FedEx, Amazon..."
                   value={carrier}
                   onChange={(e) => setCarrier(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs"
@@ -333,25 +335,35 @@ export const ParticipantPortal: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Tracking Code / Link</label>
+                <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Tracking Link (Optional)</label>
                 <input
                   type="text"
-                  required
-                  placeholder="Tracking Number"
+                  placeholder="1Z999... or URL"
                   value={trackingNumber}
                   onChange={(e) => setTrackingNumber(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs"
                 />
               </div>
 
-              <div className="sm:col-span-2">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Ship Date (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 2026-12-20 or Shipped Today"
+                  value={shippedAt}
+                  onChange={(e) => setShippedAt(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs"
+                />
+              </div>
+
+              <div className="sm:col-span-3">
                 <button
                   type="submit"
                   disabled={trackingStatus.type === 'loading'}
                   className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs flex items-center justify-center space-x-2"
                 >
                   <Package className="w-4 h-4" />
-                  <span>Update Package Tracking</span>
+                  <span>Update Package Shipping & Tracking</span>
                 </button>
               </div>
             </form>
