@@ -22,6 +22,25 @@ import {
 import { Participant, Match, TrackingInfo, AuditLog } from '../../shared/types';
 import { DiscordSetupGuide } from './DiscordSetupGuide';
 
+const isoToLocalDatetimeString = (isoStr?: string) => {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  if (isNaN(d.getTime())) return '';
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const mins = String(d.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${mins}`;
+};
+
+const localDatetimeStringToIso = (localStr?: string) => {
+  if (!localStr) return '';
+  const d = new Date(localStr);
+  if (isNaN(d.getTime())) return '';
+  return d.toISOString();
+};
+
 export const AdminDashboard: React.FC = () => {
   const [adminToken, setAdminToken] = useState<string | null>(() => localStorage.getItem('admin_token'));
   const [adminPasscode, setAdminPasscode] = useState('');
@@ -115,7 +134,7 @@ export const AdminDashboard: React.FC = () => {
           setNewPublicKey(sData.data.discordPublicKey || '');
           setNewAppId(sData.data.discordAppId || '');
           setNewBotToken(sData.data.discordBotToken || '');
-          setNewDeadline(sData.data.signupDeadline || '');
+          setNewDeadline(isoToLocalDatetimeString(sData.data.signupDeadline || ''));
           setNewGiftBudget(sData.data.giftBudget || '');
         }
       }
@@ -215,7 +234,7 @@ export const AdminDashboard: React.FC = () => {
         body: JSON.stringify({
           signupPasscode: newSignupPasscode || undefined,
           adminPasscode: newAdminPasscode || undefined,
-          signupDeadline: newDeadline || undefined,
+          signupDeadline: localDatetimeStringToIso(newDeadline) || undefined,
           giftBudget: newGiftBudget || undefined,
           discordWebhookUrl: newWebhookUrl !== undefined ? newWebhookUrl : undefined,
           discordPublicKey: newPublicKey !== undefined ? newPublicKey : undefined,
@@ -753,11 +772,11 @@ export const AdminDashboard: React.FC = () => {
               </label>
               <input
                 type="datetime-local"
-                value={newDeadline ? new Date(new Date(newDeadline).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''}
-                onChange={(e) => setNewDeadline(e.target.value ? new Date(e.target.value).toISOString() : '')}
-                className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm"
+                value={newDeadline}
+                onChange={(e) => setNewDeadline(e.target.value)}
+                className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
               />
-              {newDeadline && (
+              {newDeadline && !isNaN(new Date(newDeadline).getTime()) && (
                 <div className="mt-1.5 p-2 bg-slate-900/80 border border-slate-700/60 rounded-lg text-[11px] font-mono space-y-0.5">
                   <div className="text-amber-300">📍 Local Time: <strong>{new Date(newDeadline).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short', timeZoneName: 'short' })}</strong> ({Intl.DateTimeFormat().resolvedOptions().timeZone})</div>
                   <div className="text-slate-400">🌐 UTC Stored: {new Date(newDeadline).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' })} UTC</div>
