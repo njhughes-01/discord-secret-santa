@@ -8,9 +8,11 @@ interface DbSettingRow {
   value: string;
 }
 
-export function verifyDiscordRequestSignature(req: Request): boolean {
-  const publicKeyHex = process.env.DISCORD_PUBLIC_KEY;
-  if (!publicKeyHex) return true; // If DISCORD_PUBLIC_KEY is not configured, bypass for local testing
+export function verifyDiscordRequestSignature(req: Request, db?: DatabaseInstance): boolean {
+  const dbPublicKey = db ? (db.prepare('SELECT value FROM settings WHERE key = ?').get('discord_public_key') as DbSettingRow)?.value : undefined;
+  const publicKeyHex = process.env.DISCORD_PUBLIC_KEY || dbPublicKey;
+
+  if (!publicKeyHex) return true; // If DISCORD_PUBLIC_KEY is not configured, bypass verification for local/dev
 
   const signature = req.headers['x-signature-ed25519'] as string;
   const timestamp = req.headers['x-signature-timestamp'] as string;
@@ -40,22 +42,25 @@ export function verifyDiscordRequestSignature(req: Request): boolean {
 }
 
 export function handleDiscordInteractions(req: Request, res: Response, db: DatabaseInstance) {
+  const { type, data, member, user } = req.body;
+
+  // Type 1: Discord PING verification (Must return HTTP 200 { type: 1 } for Discord Developer Portal to verify endpoint)
+  if (type === 1) {
+    logAudit(db, 'DISCORD_PING', 'Discord Developer Portal interactions endpoint PING verified', req.ip);
+    return res.json({ type: 1 });
+  }
+
   // Validate Discord Ed25519 signature if DISCORD_PUBLIC_KEY is configured
-  if (!verifyDiscordRequestSignature(req)) {
+  if (!verifyDiscordRequestSignature(req, db)) {
+    logAudit(db, 'DISCORD_SIG_FAILED', 'Invalid Discord interaction Ed25519 request signature', req.ip, 'warn');
     return res.status(401).send('Invalid request signature');
   }
 
-  const { type, data, member, user } = req.body;
   const discordUser = member?.user || user;
   const discordId = discordUser?.id || '';
   const discordHandle = discordUser
     ? `${discordUser.username}${discordUser.discriminator && discordUser.discriminator !== '0' ? '#' + discordUser.discriminator : ''}`
     : 'Unknown';
-
-  // Type 1: Discord PING verification
-  if (type === 1) {
-    return res.json({ type: 1 });
-  }
 
   // Type 2: Slash Commands (/secret-santa)
   if (type === 2) {
