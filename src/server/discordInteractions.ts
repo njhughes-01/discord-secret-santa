@@ -10,19 +10,27 @@ interface DbSettingRow {
 
 export async function verifyDiscordRequestSignature(req: Request, db?: DatabaseInstance): Promise<boolean> {
   const dbPublicKey = db ? (db.prepare('SELECT value FROM settings WHERE key = ?').get('discord_public_key') as DbSettingRow)?.value : undefined;
-  const publicKeyHex = process.env.DISCORD_PUBLIC_KEY || dbPublicKey;
-
-  // If DISCORD_PUBLIC_KEY is not set, bypass verification for local testing
-  if (!publicKeyHex || publicKeyHex.trim() === '') return true;
+  const publicKeyHex = (process.env.DISCORD_PUBLIC_KEY || dbPublicKey || '').trim();
 
   const signature = req.headers['x-signature-ed25519'] as string;
   const timestamp = req.headers['x-signature-timestamp'] as string;
+
+  // If request does NOT have Discord signature headers (e.g. internal local test), bypass verification
+  if (!signature && !timestamp) return true;
+
   const rawBody = (req as any).rawBody || (typeof req.body === 'string' ? req.body : JSON.stringify(req.body));
 
   if (!signature || !timestamp || !rawBody) return false;
 
+  if (!publicKeyHex) {
+    if (db) {
+      logAudit(db, 'DISCORD_KEY_MISSING', 'Discord interaction failed: DISCORD_PUBLIC_KEY is not configured in Settings or .env', req.ip, 'warn');
+    }
+    return false;
+  }
+
   try {
-    return await verifyKey(rawBody, signature, timestamp, publicKeyHex.trim());
+    return await verifyKey(rawBody, signature, timestamp, publicKeyHex);
   } catch (err) {
     return false;
   }

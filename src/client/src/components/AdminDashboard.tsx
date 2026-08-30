@@ -660,6 +660,35 @@ export const AdminDashboard: React.FC = () => {
               />
             </div>
 
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                Discord Application Public Key (Required for Slash Command Verification)
+              </label>
+              <input
+                type="text"
+                placeholder="64-character hex string from Discord Developer Portal"
+                value={newPublicKey}
+                onChange={(e) => setNewPublicKey(e.target.value)}
+                className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono text-xs placeholder-slate-600"
+              />
+              <p className="text-[10px] text-slate-400 mt-1">
+                Found in Discord Developer Portal → <strong>General Information</strong> → <strong>PUBLIC KEY</strong>.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                Discord Webhook URL (Announcements)
+              </label>
+              <input
+                type="url"
+                placeholder="https://discord.com/api/webhooks/..."
+                value={newWebhookUrl}
+                onChange={(e) => setNewWebhookUrl(e.target.value)}
+                className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono text-xs placeholder-slate-600"
+              />
+            </div>
+
             <button
               type="submit"
               className="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-xl shadow-md text-sm transition-all"
