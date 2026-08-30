@@ -76,11 +76,21 @@ export function createApp(customDb?: DatabaseInstance) {
     next();
   });
 
+  // Real-time Container Request Logger for Docker Logs
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const start = Date.now();
+    res.on('finish', () => {
+      const duration = Date.now() - start;
+      console.log(`🌐 [HTTP ${req.method}] ${req.originalUrl || req.url} -> Status: ${res.statusCode} (${duration}ms) IP: ${req.ip}`);
+    });
+    next();
+  });
+
   app.use(antiRobotMiddleware);
   app.use(cors({ origin: true, credentials: true }));
   app.use(express.json({
     verify: (req: any, _res, buf) => {
-      req.rawBody = buf.toString('utf-8');
+      req.rawBody = buf;
     }
   }));
   app.use(cookieParser());

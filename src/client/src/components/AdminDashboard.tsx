@@ -99,6 +99,11 @@ export const AdminDashboard: React.FC = () => {
       // Fetch current settings for settings/discord tabs
       if (activeTab === 'settings' || activeTab === 'discord') {
         const sRes = await fetch('/api/admin/settings', { headers });
+        if (sRes.status === 401) {
+          handleLogout();
+          setLoginError('Session expired. Please log in with your Admin Passcode.');
+          return;
+        }
         const sData = await sRes.json();
         if (sData.success) {
           setNewWebhookUrl(sData.data.discordWebhookUrl || '');
@@ -110,6 +115,11 @@ export const AdminDashboard: React.FC = () => {
 
       if (activeTab === 'matches' || activeTab === 'participants') {
         const pRes = await fetch('/api/admin/participants', { headers });
+        if (pRes.status === 401) {
+          handleLogout();
+          setLoginError('Session expired. Please log in with your Admin Passcode.');
+          return;
+        }
         const pData = await pRes.json();
         if (pData.success) setParticipants(pData.data);
 
@@ -118,10 +128,20 @@ export const AdminDashboard: React.FC = () => {
         if (mData.success) setMatches(mData.data);
       } else if (activeTab === 'tracking') {
         const tRes = await fetch('/api/admin/tracking', { headers });
+        if (tRes.status === 401) {
+          handleLogout();
+          setLoginError('Session expired. Please log in with your Admin Passcode.');
+          return;
+        }
         const tData = await tRes.json();
         if (tData.success) setTrackingList(tData.data);
       } else if (activeTab === 'audit') {
         const aRes = await fetch('/api/admin/audit-logs', { headers });
+        if (aRes.status === 401) {
+          handleLogout();
+          setLoginError('Session expired. Please log in with your Admin Passcode.');
+          return;
+        }
         const aData = await aRes.json();
         if (aData.success) setAuditLogs(aData.data);
       }
@@ -142,6 +162,11 @@ export const AdminDashboard: React.FC = () => {
         method: 'POST',
         headers: { Authorization: `Bearer ${adminToken}` },
       });
+      if (res.status === 401) {
+        handleLogout();
+        setLoginError('Session expired. Please log in with your Admin Passcode.');
+        return;
+      }
       const data = await res.json();
       if (data.success) {
         alert(data.message);
@@ -177,6 +202,12 @@ export const AdminDashboard: React.FC = () => {
         }),
       });
 
+      if (res.status === 401) {
+        handleLogout();
+        setLoginError('Session expired. Please log in with your Admin Passcode.');
+        return;
+      }
+
       const data = await res.json();
       if (data.success) {
         setSettingsStatus('Settings updated successfully!');
@@ -199,6 +230,12 @@ export const AdminDashboard: React.FC = () => {
         method: 'POST',
         headers: { Authorization: `Bearer ${adminToken}` },
       });
+
+      if (res.status === 401) {
+        handleLogout();
+        setLoginError('Session expired. Please log in with your Admin Passcode.');
+        return;
+      }
 
       const data = await res.json();
       if (data.success) {

@@ -23,6 +23,16 @@ export function logAudit(
     VALUES (?, ?, ?, ?, ?, ?)
   `).run(log.id, log.timestamp, log.action, log.details, log.ip, log.severity);
 
+  // Output to stdout/stderr for docker logs visibility
+  const prefix = `[AUDIT ${severity.toUpperCase()}] [${action}]`;
+  if (severity === 'error') {
+    console.error(`🚨 ${prefix} ${details} (IP: ${log.ip})`);
+  } else if (severity === 'warn') {
+    console.warn(`⚠️ ${prefix} ${details} (IP: ${log.ip})`);
+  } else {
+    console.log(`ℹ️ ${prefix} ${details} (IP: ${log.ip})`);
+  }
+
   return log;
 }
 
