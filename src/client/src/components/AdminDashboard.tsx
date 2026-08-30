@@ -749,14 +749,20 @@ export const AdminDashboard: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                Signup Deadline Date & Time (ISO format)
+                Signup Deadline Date & Time (Local Time Picker)
               </label>
               <input
                 type="datetime-local"
-                value={newDeadline}
+                value={newDeadline ? new Date(new Date(newDeadline).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''}
                 onChange={(e) => setNewDeadline(e.target.value ? new Date(e.target.value).toISOString() : '')}
                 className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm"
               />
+              {newDeadline && (
+                <div className="mt-1.5 p-2 bg-slate-900/80 border border-slate-700/60 rounded-lg text-[11px] font-mono space-y-0.5">
+                  <div className="text-amber-300">📍 Local Time: <strong>{new Date(newDeadline).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short', timeZoneName: 'short' })}</strong> ({Intl.DateTimeFormat().resolvedOptions().timeZone})</div>
+                  <div className="text-slate-400">🌐 UTC Stored: {new Date(newDeadline).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' })} UTC</div>
+                </div>
+              )}
             </div>
 
             <button

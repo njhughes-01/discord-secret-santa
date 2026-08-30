@@ -243,11 +243,20 @@ export async function handleDiscordInteractions(req: Request, res: Response, db:
           },
         });
       } else {
+        const deadlineRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('signup_deadline') as DbSettingRow | undefined;
+        let deadlineMsg = '';
+        if (deadlineRow && deadlineRow.value) {
+          const unixSec = Math.floor(new Date(deadlineRow.value).getTime() / 1000);
+          if (!isNaN(unixSec)) {
+            deadlineMsg = `\n📅 **Signup Deadline**: <t:${unixSec}:F> (<t:${unixSec}:R>)`;
+          }
+        }
+
         return res.json({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE || 4,
           data: {
             flags: 64, // EPHEMERAL
-            content: `🔒 **Secret Santa Status**: ${participant ? '✅ You are signed up!' : '⚠️ You are not signed up yet.'} Secret Santa matches have not been generated yet. Signups are currently open!`,
+            content: `🔒 **Secret Santa Status**: ${participant ? '✅ You are signed up!' : '⚠️ You are not signed up yet.'}${deadlineMsg}\n\nSecret Santa matches have not been generated yet. Signups are currently open!`,
           },
         });
       }

@@ -75,12 +75,22 @@ export const SignupForm: React.FC<SignupFormProps> = ({ settings, onSignupSucces
     }
   };
 
-  const formattedDeadline = settings?.signupDeadline
-    ? new Date(settings.signupDeadline).toLocaleString(undefined, {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      })
-    : null;
+  const deadlineInfo = settings?.signupDeadline ? (() => {
+    const d = new Date(settings.signupDeadline);
+    if (isNaN(d.getTime())) return null;
+    const local = d.toLocaleString(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZoneName: 'short',
+    });
+    const utc = d.toLocaleString('en-US', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: 'UTC',
+    }) + ' UTC';
+    const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return { local, utc, userTz };
+  })() : null;
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -99,14 +109,21 @@ export const SignupForm: React.FC<SignupFormProps> = ({ settings, onSignupSucces
           </div>
         </div>
 
-        {formattedDeadline && (
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm bg-slate-900/80 border border-slate-700/60 rounded-xl px-4 py-2.5 mb-6 text-amber-300">
-            <div className="flex items-center space-x-2">
-              <Calendar className="w-4 h-4 text-amber-400 flex-shrink-0" />
-              <span>Signup Deadline: <strong className="font-semibold">{formattedDeadline}</strong></span>
+        {deadlineInfo && (
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm bg-slate-900/80 border border-slate-700/60 rounded-xl px-4 py-3 mb-6 text-amber-300">
+            <div className="flex items-start space-x-2">
+              <Calendar className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <div>
+                  Signup Deadline: <strong className="font-semibold text-white">{deadlineInfo.local}</strong>
+                </div>
+                <div className="text-[11px] text-slate-400 font-mono">
+                  {deadlineInfo.userTz} • UTC: {deadlineInfo.utc}
+                </div>
+              </div>
             </div>
             {settings?.giftBudget && (
-              <span className="px-2.5 py-1 bg-emerald-950 text-emerald-300 border border-emerald-700 rounded-lg text-xs font-bold">
+              <span className="px-2.5 py-1 bg-emerald-950 text-emerald-300 border border-emerald-700 rounded-lg text-xs font-bold self-start sm:self-center">
                 🎁 Budget: {settings.giftBudget}
               </span>
             )}
