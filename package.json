@@ -1,6 +1,6 @@
 {
   "name": "discord-secret-santa",
-  "version": "0.0.7",
+  "version": "0.0.9",
   "description": "Secure, self-setting-up Secret Santa application for Discord servers",
   "main": "dist/server/index.js",
   "type": "module",
@@ -11,7 +11,7 @@
     "build:server": "tsc -p tsconfig.server.json",
     "build": "node scripts/build.js",
     "start": "node dist/server/index.js",
-    "test": "tsx --test src/server/__tests__/matcher.test.ts src/server/__tests__/api.test.ts e2e/api.spec.ts",
+    "test": "tsx --test src/server/__tests__/matcher.test.ts src/server/__tests__/api.test.ts src/server/__tests__/discordSig.test.ts e2e/api.spec.ts",
     "register-discord-commands": "node scripts/register-discord-commands.js",
     "test:watch": "vitest"
   },
@@ -20,6 +20,7 @@
     "better-sqlite3": "^13.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "discord-interactions": "^4.4.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",
     "helmet": "^8.0.0",
