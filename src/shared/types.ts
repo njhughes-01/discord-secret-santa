@@ -67,6 +67,7 @@ export interface AppSettings {
 export interface ParticipantPortalData {
   participant: Participant;
   assignedRecipient: AssignedRecipient | null;
+  assignedRecipients?: AssignedRecipient[];
   trackingInfo: TrackingInfo | null;
   isMatchingComplete: boolean;
   isDeadlinePassed: boolean;

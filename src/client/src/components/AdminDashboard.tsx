@@ -48,6 +48,8 @@ export const AdminDashboard: React.FC = () => {
   const [settingsStatus, setSettingsStatus] = useState<string | null>(null);
   const [testWebhookStatus, setTestWebhookStatus] = useState<string | null>(null);
   const [registerStatus, setRegisterStatus] = useState<string | null>(null);
+  const [showMatchModal, setShowMatchModal] = useState(false);
+  const [selectedDualGiverId, setSelectedDualGiverId] = useState('');
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -157,15 +159,19 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleGenerateMatches = async () => {
+  const executeMatchGeneration = async (dualGiverId?: string) => {
     if (!adminToken) return;
-    if (!window.confirm('Are you sure you want to generate Secret Santa matches? This will pair all registered participants randomly!')) return;
-
     setLoading(true);
+    setShowMatchModal(false);
+
     try {
       const res = await fetch('/api/admin/generate-matches', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${adminToken}` },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({ dualGiverId: dualGiverId || undefined }),
       });
       if (res.status === 401) {
         handleLogout();
@@ -184,6 +190,15 @@ export const AdminDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGenerateMatches = async () => {
+    if (!adminToken) return;
+    if (participants.length < 2) {
+      alert('At least 2 registered participants are required to generate matches.');
+      return;
+    }
+    setShowMatchModal(true);
   };
 
   const handleUpdateSettings = async (e: React.FormEvent) => {
@@ -751,6 +766,69 @@ export const AdminDashboard: React.FC = () => {
               Save Event Settings
             </button>
           </form>
+        </div>
+      )}
+
+      {showMatchModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+            <h3 className="text-lg font-bold text-white flex items-center space-x-2">
+              <Gift className="w-5 h-5 text-amber-400" />
+              <span>Generate Secret Santa Matches</span>
+            </h3>
+
+            <div className="p-3 bg-slate-900 border border-slate-700 rounded-xl text-xs space-y-2 text-slate-300">
+              <div className="flex justify-between items-center text-sm font-semibold text-white">
+                <span>Registered Participants:</span>
+                <span className="px-2.5 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg">
+                  {participants.length} {participants.length % 2 !== 0 ? '(Odd Count)' : '(Even Count)'}
+                </span>
+              </div>
+              <p className="leading-relaxed text-[11px] text-slate-400">
+                Standard 1:1 derangement matching works automatically for any number of participants ({participants.length} participants).
+              </p>
+              {participants.length % 2 !== 0 && (
+                <div className="p-2.5 bg-amber-950/60 border border-amber-500/40 rounded-lg text-amber-200 text-[11px]">
+                  💡 <strong>Odd Count Option</strong>: If you'd like a volunteer to be assigned <strong>2 gift recipients</strong> (Dual Santa), select them below:
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                Assign 2 Recipients to (Optional Dual Santa):
+              </label>
+              <select
+                value={selectedDualGiverId}
+                onChange={(e) => setSelectedDualGiverId(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
+              >
+                <option value="">None (Standard 1:1 Matching - Everyone gives 1 gift)</option>
+                {participants.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.fullName} (@{p.discordHandle})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex space-x-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowMatchModal(false)}
+                className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold rounded-xl text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => executeMatchGeneration(selectedDualGiverId)}
+                className="flex-1 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-xs shadow-md"
+              >
+                Generate Matches
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

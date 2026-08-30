@@ -34,6 +34,28 @@ describe('Secret Santa Derangement Matcher', () => {
     }
   });
 
+  it('should generate valid matches for odd number of participants (3 participants)', () => {
+    const oddParticipants = sampleParticipants.slice(0, 3);
+    const matches = generateDerangementMatches(oddParticipants);
+
+    assert.equal(matches.length, 3);
+    for (const match of matches) {
+      assert.notEqual(match.giverId, match.receiverId);
+    }
+  });
+
+  it('should support dual giver option when admin designates a participant', () => {
+    const oddParticipants = sampleParticipants.slice(0, 3);
+    const matches = generateDerangementMatches(oddParticipants, '1'); // Alice is dual giver
+
+    assert.equal(matches.length, 4);
+    const aliceMatches = matches.filter(m => m.giverId === '1');
+    assert.equal(aliceMatches.length, 2);
+    assert.notEqual(aliceMatches[0].receiverId, '1');
+    assert.notEqual(aliceMatches[1].receiverId, '1');
+    assert.notEqual(aliceMatches[0].receiverId, aliceMatches[1].receiverId);
+  });
+
   it('should correctly populate receiver details (address and wishlist) in matches', () => {
     const matches = generateDerangementMatches(sampleParticipants);
 

@@ -328,29 +328,31 @@ export function createApp(customDb?: DatabaseInstance) {
       const giftBudget = budgetRow?.value || '$25 - $50';
 
       let assignedRecipient: AssignedRecipient | null = null;
+      let assignedRecipients: AssignedRecipient[] = [];
       let trackingInfo: TrackingInfo | null = null;
 
       if (isMatchingComplete) {
-        const match = db.prepare(`
+        const matchesList = db.prepare(`
           SELECT id, receiver_name as receiverName, receiver_handle as receiverHandle,
                  receiver_address as receiverAddress, receiver_wishlist as receiverWishlist
           FROM matches
           WHERE LOWER(TRIM(giver_handle)) = LOWER(TRIM(?))
-        `).get(discordHandle) as (AssignedRecipient & { id: string }) | undefined;
+        `).all(discordHandle) as (AssignedRecipient & { id: string })[];
 
-        if (match) {
-          assignedRecipient = {
+        if (matchesList && matchesList.length > 0) {
+          assignedRecipients = matchesList.map((match) => ({
             receiverName: match.receiverName,
             receiverHandle: match.receiverHandle,
             receiverAddress: match.receiverAddress,
             receiverWishlist: match.receiverWishlist,
-          };
+          }));
+          assignedRecipient = assignedRecipients[0];
 
           const track = db.prepare(`
             SELECT id, match_id as matchId, giver_handle as giverHandle, carrier, tracking_number as trackingNumber, shipped_at as shippedAt
             FROM tracking_info
             WHERE match_id = ?
-          `).get(match.id) as TrackingInfo | undefined;
+          `).get(matchesList[0].id) as TrackingInfo | undefined;
 
           if (track) {
             trackingInfo = track;
@@ -361,6 +363,7 @@ export function createApp(customDb?: DatabaseInstance) {
       const portalData: ParticipantPortalData = {
         participant,
         assignedRecipient,
+        assignedRecipients,
         trackingInfo,
         isMatchingComplete,
         isDeadlinePassed,
@@ -581,6 +584,8 @@ export function createApp(customDb?: DatabaseInstance) {
   app.post('/api/admin/generate-matches', requireAdminAuth, (req: Request, res: Response, next: NextFunction) => {
     try {
       const db = getAppDb();
+      const { dualGiverId } = req.body || {};
+
       const participants = db.prepare(`
         SELECT id, discord_handle as discordHandle, full_name as fullName, address, wishlist, created_at as createdAt
         FROM participants
@@ -590,7 +595,7 @@ export function createApp(customDb?: DatabaseInstance) {
         return res.status(400).json({ success: false, error: 'Need at least 2 participants to generate matches.' });
       }
 
-      const matches = generateDerangementMatches(participants);
+      const matches = generateDerangementMatches(participants, dualGiverId);
 
       const insertMatch = db.prepare(`
         INSERT INTO matches (id, giver_id, giver_handle, giver_name, receiver_id, receiver_handle, receiver_name, receiver_address, receiver_wishlist, created_at)
