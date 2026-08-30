@@ -42,6 +42,7 @@ export const AdminDashboard: React.FC = () => {
   const [newDeadline, setNewDeadline] = useState('');
   const [newGiftBudget, setNewGiftBudget] = useState('');
   const [newWebhookUrl, setNewWebhookUrl] = useState('');
+  const [newPublicKey, setNewPublicKey] = useState('');
   const [settingsStatus, setSettingsStatus] = useState<string | null>(null);
   const [testWebhookStatus, setTestWebhookStatus] = useState<string | null>(null);
 
@@ -94,6 +95,18 @@ export const AdminDashboard: React.FC = () => {
 
     try {
       const headers = { Authorization: `Bearer ${adminToken}` };
+
+      // Fetch current settings for settings/discord tabs
+      if (activeTab === 'settings' || activeTab === 'discord') {
+        const sRes = await fetch('/api/admin/settings', { headers });
+        const sData = await sRes.json();
+        if (sData.success) {
+          setNewWebhookUrl(sData.data.discordWebhookUrl || '');
+          setNewPublicKey(sData.data.discordPublicKey || '');
+          setNewDeadline(sData.data.signupDeadline || '');
+          setNewGiftBudget(sData.data.giftBudget || '');
+        }
+      }
 
       if (activeTab === 'matches' || activeTab === 'participants') {
         const pRes = await fetch('/api/admin/participants', { headers });
@@ -159,7 +172,8 @@ export const AdminDashboard: React.FC = () => {
           adminPasscode: newAdminPasscode || undefined,
           signupDeadline: newDeadline || undefined,
           giftBudget: newGiftBudget || undefined,
-          discordWebhookUrl: newWebhookUrl || undefined,
+          discordWebhookUrl: newWebhookUrl !== undefined ? newWebhookUrl : undefined,
+          discordPublicKey: newPublicKey !== undefined ? newPublicKey : undefined,
         }),
       });
 
@@ -528,7 +542,9 @@ export const AdminDashboard: React.FC = () => {
         <DiscordSetupGuide
           newWebhookUrl={newWebhookUrl}
           setNewWebhookUrl={setNewWebhookUrl}
-          onSaveWebhook={handleUpdateSettings}
+          newPublicKey={newPublicKey}
+          setNewPublicKey={setNewPublicKey}
+          onSaveDiscordSettings={handleUpdateSettings}
           onTestWebhook={handleTestWebhook}
           testWebhookStatus={testWebhookStatus}
           settingsStatus={settingsStatus}

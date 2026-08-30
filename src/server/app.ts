@@ -642,28 +642,54 @@ export function createApp(customDb?: DatabaseInstance) {
     }
   });
 
+  // Admin: Get Raw Settings
+  app.get('/api/admin/settings', requireAdminAuth, (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const db = getAppDb();
+      const getSetting = (key: string) => db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as DbSettingRow | undefined;
+
+      res.json({
+        success: true,
+        data: {
+          signupPasscode: getSetting('signup_passcode')?.value || '',
+          signupDeadline: getSetting('signup_deadline')?.value || '',
+          giftBudget: getSetting('gift_budget')?.value || '$25 - $50',
+          discordWebhookUrl: getSetting('discord_webhook_url')?.value || '',
+          discordPublicKey: getSetting('discord_public_key')?.value || '',
+        }
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   // Admin: Update App Settings
   app.put('/api/admin/settings', requireAdminAuth, (req: Request, res: Response, next: NextFunction) => {
     try {
       const db = getAppDb();
-      const { signupPasscode, adminPasscode, signupDeadline, giftBudget, discordWebhookUrl } = req.body;
+      const { signupPasscode, adminPasscode, signupDeadline, giftBudget, discordWebhookUrl, discordPublicKey } = req.body;
+
+      const upsert = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
 
       db.transaction(() => {
-        if (signupPasscode) {
-          db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(String(signupPasscode).trim(), 'signup_passcode');
+        if (signupPasscode !== undefined && String(signupPasscode).trim() !== '') {
+          upsert.run('signup_passcode', String(signupPasscode).trim());
         }
-        if (adminPasscode) {
+        if (adminPasscode !== undefined && String(adminPasscode).trim() !== '') {
           const hash = bcrypt.hashSync(String(adminPasscode).trim(), 10);
-          db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(hash, 'admin_passcode_hash');
+          upsert.run('admin_passcode_hash', hash);
         }
-        if (signupDeadline) {
-          db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(String(signupDeadline), 'signup_deadline');
+        if (signupDeadline !== undefined && String(signupDeadline).trim() !== '') {
+          upsert.run('signup_deadline', String(signupDeadline).trim());
         }
-        if (giftBudget) {
-          db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(String(giftBudget).trim(), 'gift_budget');
+        if (giftBudget !== undefined && String(giftBudget).trim() !== '') {
+          upsert.run('gift_budget', String(giftBudget).trim());
         }
         if (discordWebhookUrl !== undefined) {
-          db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(String(discordWebhookUrl).trim(), 'discord_webhook_url');
+          upsert.run('discord_webhook_url', String(discordWebhookUrl).trim());
+        }
+        if (discordPublicKey !== undefined) {
+          upsert.run('discord_public_key', String(discordPublicKey).trim());
         }
       })();
 

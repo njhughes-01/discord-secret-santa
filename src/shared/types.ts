@@ -59,6 +59,7 @@ export interface AppSettings {
   totalParticipants: number;
   giftBudget: string;
   discordWebhookUrl?: string;
+  discordPublicKey?: string;
 }
 
 export interface ParticipantPortalData {

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Radio, Copy, Check, Terminal, ExternalLink, ShieldCheck, Zap, Send, Info, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Radio, Copy, Check, Terminal, ExternalLink, ShieldCheck, Zap, Send, Info, CheckCircle2, Key } from 'lucide-react';
 
 interface DiscordSetupGuideProps {
   newWebhookUrl: string;
   setNewWebhookUrl: (url: string) => void;
-  onSaveWebhook: (e: React.FormEvent) => void;
+  newPublicKey: string;
+  setNewPublicKey: (key: string) => void;
+  onSaveDiscordSettings: (e: React.FormEvent) => void;
   onTestWebhook: () => void;
   testWebhookStatus: string | null;
   settingsStatus: string | null;
@@ -13,7 +15,9 @@ interface DiscordSetupGuideProps {
 export const DiscordSetupGuide: React.FC<DiscordSetupGuideProps> = ({
   newWebhookUrl,
   setNewWebhookUrl,
-  onSaveWebhook,
+  newPublicKey,
+  setNewPublicKey,
+  onSaveDiscordSettings,
   onTestWebhook,
   testWebhookStatus,
   settingsStatus,
@@ -61,22 +65,98 @@ export const DiscordSetupGuide: React.FC<DiscordSetupGuideProps> = ({
           <span>Discord Server Integration & Slash Command Guide</span>
         </h2>
         <p className="text-xs text-slate-300">
-          Complete guide to setting up Webhook Announcements and native Discord <code className="text-amber-300 bg-slate-900 px-1 py-0.5 rounded font-mono">/secret-santa</code> Slash Commands.
+          Configure Webhook Announcements, Discord Public Key, and native <code className="text-amber-300 bg-slate-900 px-1 py-0.5 rounded font-mono">/secret-santa</code> Slash Commands.
         </p>
+      </div>
+
+      {/* Quick Setup Settings Form */}
+      <div className="bg-slate-800/90 border border-indigo-500/40 p-6 rounded-2xl space-y-4">
+        <div className="flex items-center space-x-3 border-b border-slate-700/80 pb-3">
+          <div className="p-2.5 bg-indigo-500/20 text-indigo-400 rounded-xl">
+            <Key className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider">Discord Credentials & Webhook Settings</span>
+            <h3 className="text-base font-bold text-white">Save Discord Configuration</h3>
+          </div>
+        </div>
+
+        <form onSubmit={onSaveDiscordSettings} className="space-y-4">
+          {settingsStatus && (
+            <div className="p-3 bg-emerald-950 border border-emerald-600 rounded-xl text-emerald-300 text-xs flex items-center space-x-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+              <span>{settingsStatus}</span>
+            </div>
+          )}
+
+          {testWebhookStatus && (
+            <div className="p-3 bg-slate-900 border border-indigo-500/60 rounded-xl text-indigo-300 text-xs flex items-center space-x-2">
+              <Send className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+              <span>{testWebhookStatus}</span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">
+                Discord Webhook URL (Announcements)
+              </label>
+              <input
+                type="url"
+                placeholder="https://discord.com/api/webhooks/..."
+                value={newWebhookUrl}
+                onChange={(e) => setNewWebhookUrl(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">
+                Discord Application Public Key (Interactions)
+              </label>
+              <input
+                type="text"
+                placeholder="64-character hex string from Developer Portal"
+                value={newPublicKey}
+                onChange={(e) => setNewPublicKey(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+              />
+            </div>
+          </div>
+
+          <p className="text-[11px] text-slate-400 leading-relaxed">
+            💡 <strong>Where to find Public Key:</strong> Discord Developer Portal → Select Application → <strong>General Information</strong> → <strong>PUBLIC KEY</strong>.
+          </p>
+
+          <div className="flex items-center space-x-3 pt-2">
+            <button
+              type="submit"
+              className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs transition-all shadow-md"
+            >
+              Save Discord Integration Settings
+            </button>
+
+            <button
+              type="button"
+              onClick={onTestWebhook}
+              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-xs flex items-center space-x-1.5 transition-all shadow-md"
+              title="Send test announcement message to Discord channel"
+            >
+              <Send className="w-4 h-4" />
+              <span>Test Webhook</span>
+            </button>
+          </div>
+        </form>
       </div>
 
       {/* Architecture Explanation Box */}
       <div className="bg-slate-800/90 border border-amber-500/30 p-5 rounded-2xl flex items-start space-x-3">
         <Info className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
         <div className="text-xs text-slate-300 space-y-1">
-          <h4 className="font-bold text-white text-sm">💡 Do I need to host a separate Discord Bot process?</h4>
+          <h4 className="font-bold text-white text-sm">💡 Do I need to set Discord Public Key in the Frontend?</h4>
           <p className="leading-relaxed">
-            <strong>No!</strong> This Secret Santa application server handles both outbound Webhooks and inbound HTTP Interactions directly. No separate bot runner or gateway daemon is required.
+            <strong>No!</strong> The frontend web UI does not verify Ed25519 signatures. However, saving your <strong>Discord Application Public Key</strong> above stores it securely in your server database so the backend can verify incoming Discord interaction signatures automatically!
           </p>
-          <ul className="list-disc list-inside space-y-1 text-slate-400 pt-1">
-            <li><strong>Part 1 (Outbound Webhooks)</strong>: Post match announcements directly to your channel.</li>
-            <li><strong>Part 2 (Inbound Interactions)</strong>: Discord sends HTTP POST requests to <code className="text-amber-300 bg-slate-900 px-1 py-0.5 rounded font-mono text-[11px]">{interactionsUrl}</code> when users run <code className="text-indigo-300 bg-slate-900 px-1 py-0.5 rounded font-mono text-[11px]">/secret-santa</code>.</li>
-          </ul>
         </div>
       </div>
 
@@ -90,64 +170,16 @@ export const DiscordSetupGuide: React.FC<DiscordSetupGuideProps> = ({
               </div>
               <div>
                 <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Part 1: Webhook Announcements</span>
-                <h3 className="text-base font-bold text-white">Channel Webhook URL</h3>
+                <h3 className="text-base font-bold text-white">Channel Setup</h3>
               </div>
             </div>
 
             <ol className="list-decimal list-inside text-xs text-slate-300 space-y-2 leading-relaxed">
               <li>In Discord, right-click your channel → <strong>Edit Channel</strong> → <strong>Integrations</strong> → <strong>Webhooks</strong>.</li>
               <li>Click <strong>New Webhook</strong> for your announcement channel (e.g. <code className="bg-slate-900 px-1.5 py-0.5 rounded text-amber-300">#secret-santa</code>).</li>
-              <li>Copy the Webhook URL and paste it below:</li>
+              <li>Copy the Webhook URL and paste it into the settings box above.</li>
             </ol>
           </div>
-
-          <form onSubmit={onSaveWebhook} className="space-y-3 pt-2">
-            {settingsStatus && (
-              <div className="p-2 bg-emerald-950 border border-emerald-600 rounded-lg text-emerald-300 text-xs flex items-center space-x-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                <span>{settingsStatus}</span>
-              </div>
-            )}
-
-            {testWebhookStatus && (
-              <div className="p-2 bg-slate-900 border border-indigo-500/60 rounded-lg text-indigo-300 text-xs flex items-center space-x-1.5">
-                <Send className="w-3.5 h-3.5 text-indigo-400" />
-                <span>{testWebhookStatus}</span>
-              </div>
-            )}
-
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">
-                Discord Webhook URL
-              </label>
-              <input
-                type="url"
-                placeholder="https://discord.com/api/webhooks/..."
-                value={newWebhookUrl}
-                onChange={(e) => setNewWebhookUrl(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              />
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <button
-                type="submit"
-                className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs transition-all"
-              >
-                Save Webhook URL
-              </button>
-
-              <button
-                type="button"
-                onClick={onTestWebhook}
-                className="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-xs flex items-center space-x-1 transition-all"
-                title="Send test embed message to Discord channel"
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span>Test Webhook</span>
-              </button>
-            </div>
-          </form>
         </div>
 
         {/* Step 2: Native Discord Slash Commands & Modals */}
@@ -166,7 +198,7 @@ export const DiscordSetupGuide: React.FC<DiscordSetupGuideProps> = ({
             <div className="space-y-2.5 text-xs text-slate-300 leading-relaxed">
               <ol className="list-decimal list-inside space-y-2 text-slate-300">
                 <li>Log into the <a href="https://discord.com/developers/applications" target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline inline-flex items-center space-x-1 font-semibold"><span>Discord Developer Portal</span> <ExternalLink className="w-3 h-3" /></a> and select your Application.</li>
-                <li>In the left menu under <strong>SETTINGS</strong>, click <strong>General Information</strong> (the top menu item).</li>
+                <li>In the left menu under <strong>SETTINGS</strong>, click <strong>General Information</strong> (top item).</li>
                 <li>Scroll to <strong>INTERACTIONS ENDPOINT URL</strong>, paste the URL below, and click <strong>Save Changes</strong>:</li>
               </ol>
             </div>

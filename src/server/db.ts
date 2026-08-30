@@ -106,6 +106,11 @@ export function getDb(customPath?: string): DatabaseInstance {
     db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('discord_webhook_url', defaultWebhook);
   }
 
+  if (!getSetting.get('discord_public_key')) {
+    const defaultPublicKey = process.env.DISCORD_PUBLIC_KEY || '';
+    db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('discord_public_key', defaultPublicKey);
+  }
+
   if (!customPath) {
     dbInstance = db;
   }
