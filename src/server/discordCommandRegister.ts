@@ -40,6 +40,11 @@ export async function registerDiscordCommandsWithApi(
         description: 'Submit package tracking code and ship date for your gift recipient',
         type: 1,
       },
+      {
+        name: 'info',
+        description: 'View event details, budget, signup deadline, and total participants',
+        type: 1,
+      },
     ],
   };
 

@@ -297,6 +297,47 @@ export async function handleDiscordInteractions(req: Request, res: Response, db:
         return res.json(buildTrackingModal(existingTracking));
       }
 
+      if (subCommand === 'info' || subCommand === 'details' || subCommand === 'help') {
+        const countRow = db.prepare('SELECT COUNT(*) as count FROM participants').get() as { count: number };
+        const budgetRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('gift_budget') as DbSettingRow | undefined;
+        const deadlineRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('signup_deadline') as DbSettingRow | undefined;
+        const matchingRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('is_matching_complete') as DbSettingRow | undefined;
+
+        const totalParticipants = countRow?.count || 0;
+        const giftBudget = budgetRow?.value || '$25 - $50';
+        const isMatchingComplete = matchingRow?.value === 'true';
+
+        let deadlineStr = 'Not set';
+        if (deadlineRow && deadlineRow.value) {
+          const unixSec = Math.floor(new Date(deadlineRow.value).getTime() / 1000);
+          if (!isNaN(unixSec)) {
+            deadlineStr = `<t:${unixSec}:F> (<t:${unixSec}:R>)`;
+          }
+        }
+
+        const isUserRegistered = !!db.prepare(`
+          SELECT id FROM participants
+          WHERE (discord_id IS NOT NULL AND discord_id = ?)
+             OR LOWER(TRIM(discord_handle)) = LOWER(TRIM(?))
+        `).get(discordId, discordHandle);
+
+        const statusLabel = isMatchingComplete
+          ? '🔒 **Matches Generated** (Signups & updates locked)'
+          : '🟢 **Signups Open**';
+
+        const userStatusLabel = isUserRegistered
+          ? '✅ You are registered!'
+          : '⚠️ You have not registered yet. Use `/secret-santa signup` to join!';
+
+        return res.json({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE || 4,
+          data: {
+            flags: 64, // EPHEMERAL
+            content: `🎅 **Server Secret Santa 2026 Event Info**\n\n💰 **Gift Budget**: ${giftBudget}\n📅 **Signup Deadline**: ${deadlineStr}\n👥 **Total Registered Participants**: **${totalParticipants} server members**\n🎯 **Event Status**: ${statusLabel}\n\n👤 **Your Status**: ${userStatusLabel}\n🌐 **Web Portal**: https://santa.lightmedia.club\n\n💡 **Available Commands**:\n• \`/secret-santa signup\` — Register or update your shipping info\n• \`/secret-santa status\` — View your assigned gift recipient (private)\n• \`/secret-santa tracking\` — Submit package tracking code & ship date\n• \`/secret-santa info\` — View event details & participant count`,
+          },
+        });
+      }
+
       // Default or /secret-santa status: Private Ephemeral Assignment Check
       const matchingCompleteRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('is_matching_complete') as DbSettingRow;
       const isMatchingComplete = matchingCompleteRow?.value === 'true';
