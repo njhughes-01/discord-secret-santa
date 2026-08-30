@@ -289,8 +289,19 @@ export const DiscordSetupGuide: React.FC<DiscordSetupGuideProps> = ({
               <ol className="list-decimal list-inside text-xs text-slate-300 space-y-1.5 leading-relaxed pt-1">
                 <li>In Developer Portal → **OAuth2** → **URL Generator**: Check <code className="text-amber-300 font-semibold">bot</code> and <code className="text-amber-300 font-semibold">applications.commands</code>.</li>
                 <li>Copy the generated invite URL to authorize the bot in your Discord server.</li>
-                <li>Enter your **Application ID** & **Bot Token** in the form above and click <strong className="text-amber-300">1-Click Register /secret-santa</strong>! No terminal commands required!</li>
+                <li>Enter your **Application ID** & **Bot Token** in the top form, then click:</li>
               </ol>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={onRegisterCommands}
+                  className="w-full py-2.5 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white font-bold rounded-xl text-xs flex items-center justify-center space-x-2 transition-all shadow-md"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-200 animate-pulse" />
+                  <span>⚡ 1-Click Register /secret-santa Slash Command</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
