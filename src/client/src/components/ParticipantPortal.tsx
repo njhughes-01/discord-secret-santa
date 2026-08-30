@@ -224,7 +224,12 @@ export const ParticipantPortal: React.FC = () => {
     );
   }
 
-  const { participant, assignedRecipient, isMatchingComplete, isDeadlinePassed } = portalData;
+  const { participant, assignedRecipient, assignedRecipients, isMatchingComplete, isDeadlinePassed } = portalData;
+  const recipientsList = (assignedRecipients && assignedRecipients.length > 0)
+    ? assignedRecipients
+    : assignedRecipient
+    ? [assignedRecipient]
+    : [];
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -244,58 +249,64 @@ export const ParticipantPortal: React.FC = () => {
         </button>
       </div>
 
-      {/* Assigned Secret Santa Recipient Card */}
-      {isMatchingComplete && assignedRecipient ? (
-        <div className="bg-gradient-to-r from-red-950/90 via-slate-800 to-slate-800 border-2 border-red-500/80 p-6 sm:p-8 rounded-2xl space-y-4 relative overflow-hidden shadow-2xl">
-          <div className="absolute top-0 right-0 -mt-6 -mr-6 w-32 h-32 bg-red-500/10 rounded-full blur-2xl pointer-events-none"></div>
+      {/* Assigned Secret Santa Recipient Cards */}
+      {isMatchingComplete && recipientsList.length > 0 ? (
+        <div className="space-y-6">
+          {recipientsList.map((rec, idx) => (
+            <div key={idx} className="bg-gradient-to-r from-red-950/90 via-slate-800 to-slate-800 border-2 border-red-500/80 p-6 sm:p-8 rounded-2xl space-y-4 relative overflow-hidden shadow-2xl">
+              <div className="absolute top-0 right-0 -mt-6 -mr-6 w-32 h-32 bg-red-500/10 rounded-full blur-2xl pointer-events-none"></div>
 
-          <div className="flex items-center space-x-3">
-            <div className="p-3 bg-red-600/30 text-red-400 rounded-xl">
-              <Gift className="w-8 h-8 animate-bounce" />
-            </div>
-            <div className="flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
-                <span className="text-xs font-bold text-red-400 uppercase tracking-wider">Your Assigned Recipient</span>
-                <h3 className="text-2xl font-extrabold text-white">{assignedRecipient.receiverName}</h3>
-                <p className="text-sm text-emerald-400 font-medium">Discord: {assignedRecipient.receiverHandle}</p>
+              <div className="flex items-center space-x-3">
+                <div className="p-3 bg-red-600/30 text-red-400 rounded-xl">
+                  <Gift className="w-8 h-8 animate-bounce" />
+                </div>
+                <div className="flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <span className="text-xs font-bold text-red-400 uppercase tracking-wider">
+                      {recipientsList.length > 1 ? `Your Assigned Recipient #${idx + 1}` : 'Your Assigned Recipient'}
+                    </span>
+                    <h3 className="text-2xl font-extrabold text-white">{rec.receiverName}</h3>
+                    <p className="text-sm text-emerald-400 font-medium">Discord: {rec.receiverHandle}</p>
+                  </div>
+                  <div className="px-3 py-1 bg-amber-950/80 text-amber-300 border border-amber-700/60 rounded-xl text-xs font-bold self-start sm:self-center">
+                    🎁 Gift Budget: {portalData.giftBudget}
+                  </div>
+                </div>
               </div>
-              <div className="px-3 py-1 bg-amber-950/80 text-amber-300 border border-amber-700/60 rounded-xl text-xs font-bold self-start sm:self-center">
-                🎁 Gift Budget: {portalData.giftBudget}
+
+              <div className="bg-slate-900/90 p-4 rounded-xl border border-slate-700 space-y-2 relative">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-400 uppercase flex items-center space-x-1">
+                    <MapPin className="w-3.5 h-3.5 text-red-400" />
+                    <span>Shipping Address</span>
+                  </span>
+                  <button
+                    onClick={() => copyToClipboard(`${rec.receiverName}\n${rec.receiverAddress}`, `rec-addr-${idx}`)}
+                    className="text-xs text-slate-400 hover:text-white flex items-center space-x-1"
+                  >
+                    {copiedId === `rec-addr-${idx}` ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedId === `rec-addr-${idx}` ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+                <p className="text-sm text-slate-100 font-mono whitespace-pre-line leading-relaxed">
+                  {rec.receiverAddress}
+                </p>
               </div>
-            </div>
-          </div>
 
-          <div className="bg-slate-900/90 p-4 rounded-xl border border-slate-700 space-y-2 relative">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-400 uppercase flex items-center space-x-1">
-                <MapPin className="w-3.5 h-3.5 text-red-400" />
-                <span>Shipping Address</span>
-              </span>
-              <button
-                onClick={() => copyToClipboard(`${assignedRecipient.receiverName}\n${assignedRecipient.receiverAddress}`, 'rec-addr')}
-                className="text-xs text-slate-400 hover:text-white flex items-center space-x-1"
-              >
-                {copiedId === 'rec-addr' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copiedId === 'rec-addr' ? 'Copied' : 'Copy'}</span>
-              </button>
+              {rec.receiverWishlist && (
+                <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 text-sm text-slate-300 space-y-1">
+                  <span className="text-xs font-semibold text-slate-400 uppercase flex items-center space-x-1">
+                    <Heart className="w-3.5 h-3.5 text-pink-400" />
+                    <span>Wishlist & Preferences</span>
+                  </span>
+                  <p className="text-slate-200">{rec.receiverWishlist}</p>
+                </div>
+              )}
             </div>
-            <p className="text-sm text-slate-100 font-mono whitespace-pre-line leading-relaxed">
-              {assignedRecipient.receiverAddress}
-            </p>
-          </div>
-
-          {assignedRecipient.receiverWishlist && (
-            <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 text-sm text-slate-300 space-y-1">
-              <span className="text-xs font-semibold text-slate-400 uppercase flex items-center space-x-1">
-                <Heart className="w-3.5 h-3.5 text-pink-400" />
-                <span>Wishlist & Preferences</span>
-              </span>
-              <p className="text-slate-200">{assignedRecipient.receiverWishlist}</p>
-            </div>
-          )}
+          ))}
 
           {/* Package Tracking Form inside Portal */}
-          <div className="border-t border-slate-700/80 pt-6 mt-6 space-y-4">
+          <div className="bg-slate-800/90 border border-slate-700 p-6 rounded-2xl space-y-4">
             <h4 className="text-sm font-bold text-white flex items-center space-x-2">
               <Truck className="w-4 h-4 text-emerald-400" />
               <span>Submit Shipping & Package Tracking</span>
