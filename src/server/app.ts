@@ -13,6 +13,7 @@ import { createAdminSession, invalidateAdminSession, requireAdminAuth } from './
 import { generateDerangementMatches } from './matcher.js';
 import { sendDiscordAnnouncement } from './webhook.js';
 import { handleDiscordInteractions } from './discordInteractions.js';
+import { registerDiscordCommandsWithApi } from './discordCommandRegister.js';
 import {
   Participant,
   Match,
@@ -666,6 +667,8 @@ export function createApp(customDb?: DatabaseInstance) {
           giftBudget: getSetting('gift_budget')?.value || '$25 - $50',
           discordWebhookUrl: getSetting('discord_webhook_url')?.value || '',
           discordPublicKey: getSetting('discord_public_key')?.value || '',
+          discordAppId: getSetting('discord_app_id')?.value || '',
+          discordBotToken: getSetting('discord_bot_token')?.value || '',
         }
       });
     } catch (err) {
@@ -677,7 +680,7 @@ export function createApp(customDb?: DatabaseInstance) {
   app.put('/api/admin/settings', requireAdminAuth, (req: Request, res: Response, next: NextFunction) => {
     try {
       const db = getAppDb();
-      const { signupPasscode, adminPasscode, signupDeadline, giftBudget, discordWebhookUrl, discordPublicKey } = req.body;
+      const { signupPasscode, adminPasscode, signupDeadline, giftBudget, discordWebhookUrl, discordPublicKey, discordAppId, discordBotToken } = req.body;
 
       const upsert = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
 
@@ -701,10 +704,33 @@ export function createApp(customDb?: DatabaseInstance) {
         if (discordPublicKey !== undefined) {
           upsert.run('discord_public_key', String(discordPublicKey).trim());
         }
+        if (discordAppId !== undefined) {
+          upsert.run('discord_app_id', String(discordAppId).trim());
+        }
+        if (discordBotToken !== undefined) {
+          upsert.run('discord_bot_token', String(discordBotToken).trim());
+        }
       })();
 
       logAudit(db, 'SETTINGS_UPDATED', 'Admin updated application settings', req.ip);
       res.json({ success: true, message: 'Settings updated successfully.' });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Admin: 1-Click Register Discord Slash Commands with Discord API v10
+  app.post('/api/admin/register-discord-commands', requireAdminAuth, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const db = getAppDb();
+      const { appId, botToken } = req.body;
+
+      const result = await registerDiscordCommandsWithApi(appId, botToken, db);
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(400).json(result);
+      }
     } catch (err) {
       next(err);
     }

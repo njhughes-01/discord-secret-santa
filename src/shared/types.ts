@@ -60,6 +60,8 @@ export interface AppSettings {
   giftBudget: string;
   discordWebhookUrl?: string;
   discordPublicKey?: string;
+  discordAppId?: string;
+  discordBotToken?: string;
 }
 
 export interface ParticipantPortalData {

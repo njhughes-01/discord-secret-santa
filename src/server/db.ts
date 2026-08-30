@@ -116,6 +116,16 @@ export function getDb(customPath?: string): DatabaseInstance {
     db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('discord_public_key', defaultPublicKey);
   }
 
+  if (!getSetting.get('discord_app_id')) {
+    const defaultAppId = process.env.DISCORD_APPLICATION_ID || '';
+    db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('discord_app_id', defaultAppId);
+  }
+
+  if (!getSetting.get('discord_bot_token')) {
+    const defaultBotToken = process.env.DISCORD_BOT_TOKEN || '';
+    db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('discord_bot_token', defaultBotToken);
+  }
+
   if (!customPath) {
     dbInstance = db;
   }

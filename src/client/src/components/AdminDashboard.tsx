@@ -43,8 +43,11 @@ export const AdminDashboard: React.FC = () => {
   const [newGiftBudget, setNewGiftBudget] = useState('');
   const [newWebhookUrl, setNewWebhookUrl] = useState('');
   const [newPublicKey, setNewPublicKey] = useState('');
+  const [newAppId, setNewAppId] = useState('');
+  const [newBotToken, setNewBotToken] = useState('');
   const [settingsStatus, setSettingsStatus] = useState<string | null>(null);
   const [testWebhookStatus, setTestWebhookStatus] = useState<string | null>(null);
+  const [registerStatus, setRegisterStatus] = useState<string | null>(null);
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -108,6 +111,8 @@ export const AdminDashboard: React.FC = () => {
         if (sData.success) {
           setNewWebhookUrl(sData.data.discordWebhookUrl || '');
           setNewPublicKey(sData.data.discordPublicKey || '');
+          setNewAppId(sData.data.discordAppId || '');
+          setNewBotToken(sData.data.discordBotToken || '');
           setNewDeadline(sData.data.signupDeadline || '');
           setNewGiftBudget(sData.data.giftBudget || '');
         }
@@ -199,6 +204,8 @@ export const AdminDashboard: React.FC = () => {
           giftBudget: newGiftBudget || undefined,
           discordWebhookUrl: newWebhookUrl !== undefined ? newWebhookUrl : undefined,
           discordPublicKey: newPublicKey !== undefined ? newPublicKey : undefined,
+          discordAppId: newAppId !== undefined ? newAppId : undefined,
+          discordBotToken: newBotToken !== undefined ? newBotToken : undefined,
         }),
       });
 
@@ -245,6 +252,40 @@ export const AdminDashboard: React.FC = () => {
       }
     } catch (err) {
       setTestWebhookStatus('❌ Network error testing webhook.');
+    }
+  };
+
+  const handleRegisterCommands = async () => {
+    if (!adminToken) return;
+    setRegisterStatus('Auto-registering slash commands with Discord API v10...');
+
+    try {
+      const res = await fetch('/api/admin/register-discord-commands', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({
+          appId: newAppId,
+          botToken: newBotToken,
+        }),
+      });
+
+      if (res.status === 401) {
+        handleLogout();
+        setLoginError('Session expired. Please log in with your Admin Passcode.');
+        return;
+      }
+
+      const data = await res.json();
+      if (data.success) {
+        setRegisterStatus('✅ ' + data.message);
+      } else {
+        setRegisterStatus('❌ Error: ' + data.message);
+      }
+    } catch (err) {
+      setRegisterStatus('❌ Network error auto-registering slash commands.');
     }
   };
 
@@ -581,9 +622,15 @@ export const AdminDashboard: React.FC = () => {
           setNewWebhookUrl={setNewWebhookUrl}
           newPublicKey={newPublicKey}
           setNewPublicKey={setNewPublicKey}
+          newAppId={newAppId}
+          setNewAppId={setNewAppId}
+          newBotToken={newBotToken}
+          setNewBotToken={setNewBotToken}
           onSaveDiscordSettings={handleUpdateSettings}
           onTestWebhook={handleTestWebhook}
+          onRegisterCommands={handleRegisterCommands}
           testWebhookStatus={testWebhookStatus}
+          registerStatus={registerStatus}
           settingsStatus={settingsStatus}
         />
       )}
