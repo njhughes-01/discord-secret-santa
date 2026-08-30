@@ -36,6 +36,9 @@ const DUMMY_HASH = '$2a$10$e7f0/bKxJbH7k9J1L6W8.e1vJ3Q9Z2M4X7Y5Z8A1B3C5D7E9F1G3H
 export function createApp(customDb?: DatabaseInstance) {
   const app = express();
 
+  // Trust 1 hop proxy (Cloudflare Tunnel / reverse proxy) for express-rate-limit client IP extraction
+  app.set('trust proxy', 1);
+
   // Hide Node/Express fingerprinting
   app.disable('x-powered-by');
 
