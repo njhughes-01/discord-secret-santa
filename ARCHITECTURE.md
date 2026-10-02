@@ -46,6 +46,8 @@ Discord Secret Santa is a secure, privacy-first, zero-exposure web application a
 
 5. **Passcode Gate Wall**:
    - Unauthenticated web visitors see only an Event Passcode Gate. No signup forms or participant details are rendered until the passcode (`santa2026`) is verified.
+   - Web signup, participant login/profile updates and tracking submissions re-check the passcode on the server. Passcodes are case-insensitive and whitespace-tolerant (NFKC-normalized, trimmed and lowercased at compare time).
+   - Discord signup does not ask for the passcode: anyone who can run the slash command is in the drawing.
 
 6. **100% Ephemeral Discord Messages (`flags: 64`)**:
    - All Discord Slash Commands (`/secret-santa status`, `/secret-santa signup`) reply with `data.flags = 64` (EPHEMERAL). Responses render exclusively on the caller's private Discord client.
@@ -72,11 +74,18 @@ Uses a cryptographically-secure random Fisher-Yates derangement algorithm:
 
 ---
 
+## 🔁 Reopen Signups & Redraw
+
+- **Reopen Signups** (`POST /api/admin/reopen-signups`): in one transaction, deletes all matches and tracking info and sets `is_matching_complete` to `false`, so participants can sign up or edit their details again. New signups still require an open (future or unset) signup deadline; the response flags when the deadline has already passed.
+- **Redraw** (`POST /api/admin/generate-matches` while matches exist): replaces every match with a fresh draw and deletes all submitted tracking info. The Discord announcement is re-sent only if a webhook URL is configured.
+
+---
+
 ## 🤖 Discord Slash Commands & Webhooks
 
 - **Webhook Endpoint**: `POST /api/discord/interactions`
 - **Commands**:
-  - `/secret-santa signup`: Opens an interactive Discord Modal popup for entering shipping details inside Discord.
+  - `/secret-santa signup`: Opens an interactive Discord Modal popup for entering shipping details inside Discord. No passcode is required; signups are refused once matches are generated or the signup deadline has passed.
   - `/secret-santa status`: Sends a private ephemeral message showing assigned Secret Santa recipient.
 - **Announcement Webhooks**: Triggers rich markdown embeds on match generation or test requests (`POST /api/admin/test-webhook`).
 
