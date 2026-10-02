@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import request from 'supertest';
 import { createApp } from '../app.js';
 import { getDb } from '../db.js';
+import { postDiscordInteraction } from './discordTestSigning.js';
 import Database from 'better-sqlite3';
 
 describe('Secret Santa API Integration & Security Tests', () => {
@@ -39,13 +40,13 @@ describe('Secret Santa API Integration & Security Tests', () => {
   });
 
   it('should handle Discord PING interaction type 1', async () => {
-    const res = await request(app).post('/api/discord/interactions').send({ type: 1 });
+    const res = await postDiscordInteraction(app, { type: 1 });
     assert.equal(res.status, 200);
     assert.equal(res.body.type, 1);
   });
 
   it('should handle Discord Modal Signup without a passcode, with ephemeral flag 64, and save participant', async () => {
-    const res = await request(app).post('/api/discord/interactions').send({
+    const res = await postDiscordInteraction(app, {
       type: 5,
       member: { user: { id: '123456789', username: 'discorduser', discriminator: '0' } },
       data: {
@@ -68,7 +69,7 @@ describe('Secret Santa API Integration & Security Tests', () => {
   });
 
   it('should return ephemeral response (flags: 64) for /secret-santa status command', async () => {
-    const res = await request(app).post('/api/discord/interactions').send({
+    const res = await postDiscordInteraction(app, {
       type: 2,
       member: { user: { id: '123456789', username: 'discorduser', discriminator: '0' } },
       data: { name: 'secret-santa', options: [{ name: 'status' }] },
@@ -160,7 +161,7 @@ describe('Secret Santa API Integration & Security Tests', () => {
     const update = await request(app).put('/api/admin/settings').set('Authorization', `Bearer ${token}`).send({ signupPasscode: 'NewCode' });
     assert.equal(update.status, 200);
 
-    const res = await request(app).post('/api/discord/interactions').send({
+    const res = await postDiscordInteraction(app, {
       type: 5,
       member: { user: { id: '42', username: 'mobileuser', discriminator: '0' } },
       data: {
@@ -289,13 +290,13 @@ describe('Secret Santa API Integration & Security Tests', () => {
   it('should reject Discord signups once the signup deadline has passed', async () => {
     const discordUser = { user: { id: '555', username: 'lateuser', discriminator: '0' } };
     const signupCommand = () =>
-      request(app).post('/api/discord/interactions').send({
+      postDiscordInteraction(app, {
         type: 2,
         member: discordUser,
         data: { name: 'secret-santa', options: [{ name: 'signup' }] },
       });
     const signupModal = () =>
-      request(app).post('/api/discord/interactions').send({
+      postDiscordInteraction(app, {
         type: 5,
         member: discordUser,
         data: {

@@ -22,17 +22,6 @@ export async function verifyDiscordRequestSignature(req: Request, db?: DatabaseI
   const signature = req.headers['x-signature-ed25519'] as string;
   const timestamp = req.headers['x-signature-timestamp'] as string;
 
-  console.log(`🔍 [DISCORD INTERACTION REQUEST] Incoming interaction check from IP: ${req.ip}`);
-  console.log(`   ├─ Signature Header: ${signature ? signature.substring(0, 12) + '...' : 'MISSING'}`);
-  console.log(`   ├─ Timestamp Header: ${timestamp || 'MISSING'}`);
-  console.log(`   └─ Configured Public Key: ${publicKeyHex ? publicKeyHex.substring(0, 12) + '... (Length: ' + publicKeyHex.length + ')' : 'NONE (MISSING!)'}`);
-
-  // If request does NOT have Discord signature headers (e.g. internal local test), bypass verification
-  if (!signature && !timestamp) {
-    console.log('   └─ No Discord signature headers present. Bypassing signature check for local test.');
-    return true;
-  }
-
   const rawBody = (req as any).rawBody || (typeof req.body === 'string' ? req.body : JSON.stringify(req.body));
 
   if (!signature || !timestamp || !rawBody) {
@@ -50,9 +39,7 @@ export async function verifyDiscordRequestSignature(req: Request, db?: DatabaseI
   }
 
   try {
-    const isValid = await verifyKey(rawBody, signature, timestamp, publicKeyHex);
-    console.log(`   └─ Ed25519 Verification Result: ${isValid ? '✅ VALID SIGNATURE (HTTP 200)' : '❌ INVALID SIGNATURE (HTTP 401)'}`);
-    return isValid;
+    return await verifyKey(rawBody, signature, timestamp, publicKeyHex);
   } catch (err: any) {
     console.error(`🚨 [DISCORD INTERACTION CHECK] Exception during verifyKey: ${err?.message || err}`);
     return false;

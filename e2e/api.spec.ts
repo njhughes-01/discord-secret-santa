@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import request from 'supertest';
 import { createApp } from '../src/server/app.js';
 import { getDb } from '../src/server/db.js';
+import { postDiscordInteraction } from '../src/server/__tests__/discordTestSigning.js';
 import Database from 'better-sqlite3';
 
 describe('Playwright & E2E API Verification Suite', () => {
@@ -111,7 +112,7 @@ describe('Playwright & E2E API Verification Suite', () => {
   });
 
   it('4. Discord Interactions: Slash command /secret-santa status returns ephemeral flags: 64', async () => {
-    const statusRes = await request(app).post('/api/discord/interactions').send({
+    const statusRes = await postDiscordInteraction(app, {
       type: 2,
       member: { user: { id: '999888777', username: 'discordtester', discriminator: '0' } },
       data: { name: 'secret-santa', options: [{ name: 'status' }] },
