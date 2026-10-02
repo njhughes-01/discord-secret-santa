@@ -67,6 +67,26 @@ export default function App() {
     fetchSettings();
   }, []);
 
+  // Re-check the remembered event passcode so visitors are sent back to the gate
+  // (and learn the new code) after an admin changes it.
+  useEffect(() => {
+    const stored = localStorage.getItem('event_passcode');
+    if (!stored) return;
+
+    fetch('/api/verify-passcode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passcode: stored }),
+    })
+      .then((res) => {
+        if (res.status === 401) {
+          localStorage.removeItem('event_passcode');
+          setEventPasscode(null);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const handlePasscodeSuccess = (code: string) => {
     setEventPasscode(code);
     localStorage.setItem('event_passcode', code);

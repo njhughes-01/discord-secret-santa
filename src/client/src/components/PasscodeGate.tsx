@@ -75,7 +75,11 @@ export const PasscodeGate: React.FC<PasscodeGateProps> = ({ onSuccess, onAdminCl
             <div className="relative">
               <Lock className="w-5 h-5 text-slate-400 absolute left-3 top-2.5" />
               <input
-                type="password"
+                type="text"
+                autoComplete="off"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 required
                 placeholder="Enter event passcode"
                 value={passcode}

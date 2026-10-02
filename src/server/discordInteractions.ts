@@ -3,6 +3,7 @@ import { verifyKey, InteractionType, InteractionResponseType } from 'discord-int
 import { v4 as uuidv4 } from 'uuid';
 import { DatabaseInstance } from './db.js';
 import { logAudit } from './logger.js';
+import { isValidSignupPasscode } from './passcode.js';
 
 interface DbSettingRow {
   value: string;
@@ -469,8 +470,7 @@ export async function handleDiscordInteractions(req: Request, res: Response, db:
       const passcode = String(getVal('passcode')).trim();
 
       // Check passcode
-      const passcodeRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('signup_passcode') as DbSettingRow;
-      if (!passcodeRow || passcode !== passcodeRow.value) {
+      if (!isValidSignupPasscode(db, passcode)) {
         return res.json({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE || 4,
           data: {

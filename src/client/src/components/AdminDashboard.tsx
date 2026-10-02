@@ -57,6 +57,7 @@ export const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   // Settings form state
+  const [currentSignupPasscode, setCurrentSignupPasscode] = useState('');
   const [newSignupPasscode, setNewSignupPasscode] = useState('');
   const [newAdminPasscode, setNewAdminPasscode] = useState('');
   const [newDeadline, setNewDeadline] = useState('');
@@ -124,6 +125,7 @@ export const AdminDashboard: React.FC = () => {
         }
         const sData = await sRes.json();
         if (sData.success) {
+          setCurrentSignupPasscode(sData.data.signupPasscode || '');
           setNewWebhookUrl(sData.data.discordWebhookUrl || '');
           setNewPublicKey(sData.data.discordPublicKey || '');
           setNewAppId(sData.data.discordAppId || '');
@@ -212,7 +214,41 @@ export const AdminDashboard: React.FC = () => {
       alert('At least 2 registered participants are required to generate matches.');
       return;
     }
+    if (matches.length > 0 && !confirm('Redraw matches? This replaces every current assignment, deletes all submitted tracking info, and sends the Discord announcement again.')) {
+      return;
+    }
     setShowMatchModal(true);
+  };
+
+  const handleReopenSignups = async () => {
+    if (!adminToken) return;
+    if (!confirm('Reopen signups? This deletes all current matches and submitted tracking info so participants can join or update their details. If the signup deadline has passed, set a new one in Settings so people can sign up again.')) {
+      return;
+    }
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/admin/reopen-signups', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      if (res.status === 401) {
+        handleLogout();
+        setLoginError('Session expired. Please log in with your Admin Passcode.');
+        return;
+      }
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message);
+        fetchAdminData();
+      } else {
+        alert('Error: ' + data.error);
+      }
+    } catch (err) {
+      alert('Failed to reopen signups.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleUpdateSettings = async (e: React.FormEvent) => {
@@ -248,6 +284,7 @@ export const AdminDashboard: React.FC = () => {
       const data = await res.json();
       if (data.success) {
         setSettingsStatus('Settings updated successfully!');
+        if (newSignupPasscode.trim()) setCurrentSignupPasscode(newSignupPasscode.trim());
         setNewSignupPasscode('');
         setNewAdminPasscode('');
       } else {
@@ -435,8 +472,19 @@ export const AdminDashboard: React.FC = () => {
             className="px-4 py-2 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-md flex items-center space-x-2 disabled:opacity-50"
           >
             <Shuffle className="w-4 h-4" />
-            <span>Generate Secret Santa Matches</span>
+            <span>{matches.length > 0 ? 'Redraw Secret Santa Matches' : 'Generate Secret Santa Matches'}</span>
           </button>
+
+          {matches.length > 0 && (
+            <button
+              onClick={handleReopenSignups}
+              disabled={loading}
+              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-amber-300 text-xs sm:text-sm font-semibold rounded-xl flex items-center space-x-2 disabled:opacity-50"
+            >
+              <Lock className="w-4 h-4" />
+              <span>Reopen Signups</span>
+            </button>
+          )}
 
           <button
             onClick={handleLogout}
@@ -728,8 +776,18 @@ export const AdminDashboard: React.FC = () => {
               <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
                 New Participant Signup Passcode
               </label>
+              {currentSignupPasscode && (
+                <p className="text-xs text-slate-400 mb-1">
+                  Current code in use: <span className="font-mono text-amber-300">{currentSignupPasscode}</span>
+                  {' '}(changing SIGNUP_PASSCODE in .env only applies to a brand-new database; change it here instead)
+                </p>
+              )}
               <input
                 type="text"
+                autoComplete="off"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 placeholder="Leave blank to keep current"
                 value={newSignupPasscode}
                 onChange={(e) => setNewSignupPasscode(e.target.value)}
@@ -743,6 +801,7 @@ export const AdminDashboard: React.FC = () => {
               </label>
               <input
                 type="password"
+                autoComplete="new-password"
                 placeholder="Leave blank to keep current"
                 value={newAdminPasscode}
                 onChange={(e) => setNewAdminPasscode(e.target.value)}

@@ -14,6 +14,7 @@ import { generateDerangementMatches } from './matcher.js';
 import { sendDiscordAnnouncement } from './webhook.js';
 import { handleDiscordInteractions } from './discordInteractions.js';
 import { registerDiscordCommandsWithApi } from './discordCommandRegister.js';
+import { isValidSignupPasscode } from './passcode.js';
 import {
   Participant,
   Match,
@@ -154,8 +155,7 @@ export function createApp(customDb?: DatabaseInstance) {
         return res.status(400).json({ success: false, error: 'Passcode is required.' });
       }
 
-      const passcodeRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('signup_passcode') as DbSettingRow;
-      if (!passcodeRow || String(passcode).trim() !== passcodeRow.value) {
+      if (!isValidSignupPasscode(db, passcode)) {
         logAudit(db, 'PASSCODE_VERIFY_FAILED', 'Failed event passcode verification', req.ip, 'warn');
         return res.status(401).json({ success: false, error: 'Invalid event passcode.' });
       }
@@ -204,8 +204,7 @@ export function createApp(customDb?: DatabaseInstance) {
       }
 
       // Check passcode
-      const actualPasscodeRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('signup_passcode') as DbSettingRow;
-      if (!actualPasscodeRow || String(passcode).trim() !== actualPasscodeRow.value) {
+      if (!isValidSignupPasscode(db, passcode)) {
         logAudit(db, 'SIGNUP_FAILED', `Invalid signup attempt for handle ${discordHandle}`, req.ip, 'warn');
         return res.status(401).json({ success: false, error: 'Invalid signup credentials.' });
       }
@@ -304,8 +303,7 @@ export function createApp(customDb?: DatabaseInstance) {
       }
 
       // Verify passcode
-      const passcodeRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('signup_passcode') as DbSettingRow;
-      const isPasscodeValid = passcodeRow && String(passcode).trim() === passcodeRow.value;
+      const isPasscodeValid = isValidSignupPasscode(db, passcode);
 
       const participant = db.prepare(`
         SELECT id, discord_handle as discordHandle, full_name as fullName, address, wishlist, created_at as createdAt
@@ -386,8 +384,7 @@ export function createApp(customDb?: DatabaseInstance) {
         return res.status(400).json({ success: false, error: 'Discord handle, passcode, full name, and address are required.' });
       }
 
-      const passcodeRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('signup_passcode') as DbSettingRow;
-      if (!passcodeRow || String(passcode).trim() !== passcodeRow.value) {
+      if (!isValidSignupPasscode(db, passcode)) {
         return res.status(401).json({ success: false, error: 'Invalid handle or passcode.' });
       }
 
@@ -420,8 +417,7 @@ export function createApp(customDb?: DatabaseInstance) {
       }
 
       // Verify passcode
-      const passcodeRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('signup_passcode') as DbSettingRow;
-      if (!passcodeRow || String(passcode).trim() !== passcodeRow.value) {
+      if (!isValidSignupPasscode(db, passcode)) {
         return res.status(401).json({ success: false, error: 'Invalid passcode.' });
       }
 
@@ -645,6 +641,35 @@ export function createApp(customDb?: DatabaseInstance) {
     }
   });
 
+  // Admin: Reopen Signups (clears current draw so participants can join/update and admin can redraw)
+  app.post('/api/admin/reopen-signups', requireAdminAuth, (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const db = getAppDb();
+      let clearedMatches = 0;
+
+      db.transaction(() => {
+        clearedMatches = db.prepare('DELETE FROM matches').run().changes;
+        db.prepare('DELETE FROM tracking_info').run();
+        db.prepare('UPDATE settings SET value = ? WHERE key = ?').run('false', 'is_matching_complete');
+      })();
+
+      logAudit(db, 'SIGNUPS_REOPENED', `Admin reopened signups and cleared ${clearedMatches} matches`, req.ip, 'warn');
+
+      const deadlineRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('signup_deadline') as DbSettingRow | undefined;
+      const isDeadlinePassed = deadlineRow?.value ? new Date() > new Date(deadlineRow.value) : false;
+
+      res.json({
+        success: true,
+        isDeadlinePassed,
+        message: isDeadlinePassed
+          ? 'Matches cleared. Note: the signup deadline has passed, so signups stay closed until you set a new deadline in Settings.'
+          : 'Signups reopened and previous matches cleared.',
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   // Admin: Get Tracking Info
   app.get('/api/admin/tracking', requireAdminAuth, (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -733,13 +758,17 @@ export function createApp(customDb?: DatabaseInstance) {
 
       const upsert = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
 
+      const changedKeys: string[] = [];
+
       db.transaction(() => {
         if (signupPasscode !== undefined && String(signupPasscode).trim() !== '') {
           upsert.run('signup_passcode', String(signupPasscode).trim());
+          changedKeys.push('signup_passcode');
         }
         if (adminPasscode !== undefined && String(adminPasscode).trim() !== '') {
           const hash = bcrypt.hashSync(String(adminPasscode).trim(), 10);
           upsert.run('admin_passcode_hash', hash);
+          changedKeys.push('admin_passcode');
         }
         if (signupDeadline !== undefined && String(signupDeadline).trim() !== '') {
           upsert.run('signup_deadline', String(signupDeadline).trim());
@@ -764,7 +793,8 @@ export function createApp(customDb?: DatabaseInstance) {
         }
       })();
 
-      logAudit(db, 'SETTINGS_UPDATED', 'Admin updated application settings', req.ip);
+      const passcodeNote = changedKeys.length > 0 ? ` (changed: ${changedKeys.join(', ')})` : '';
+      logAudit(db, 'SETTINGS_UPDATED', `Admin updated application settings${passcodeNote}`, req.ip);
       res.json({ success: true, message: 'Settings updated successfully.' });
     } catch (err) {
       next(err);

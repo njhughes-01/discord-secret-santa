@@ -106,4 +106,90 @@ describe('Secret Santa API Integration & Security Tests', () => {
     assert.equal(blockedRes.status, 429);
     assert.match(blockedRes.body.error, /too many login attempts/i);
   });
+
+  const adminToken = async () => {
+    const res = await request(app).post('/api/admin/login').send({ passcode: 'admin123' });
+    assert.equal(res.status, 200);
+    return res.body.token as string;
+  };
+
+  const signup = (handle: string, passcode: string) =>
+    request(app).post('/api/signup').send({ discordHandle: handle, fullName: handle, address: '1 Test St', passcode });
+
+  it('should only accept the current signup passcode after an admin changes it', async () => {
+    const token = await adminToken();
+    assert.equal((await signup('alice', 'santa2026')).status, 200);
+
+    const update = await request(app).put('/api/admin/settings').set('Authorization', `Bearer ${token}`).send({ signupPasscode: 'NewCode' });
+    assert.equal(update.status, 200);
+
+    assert.equal((await signup('bob', 'santa2026')).status, 401);
+    assert.equal((await signup('bob', 'newcode')).status, 200);
+
+    const oldLogin = await request(app).post('/api/participant/login').send({ discordHandle: 'alice', passcode: 'santa2026' });
+    assert.equal(oldLogin.status, 401);
+    const newLogin = await request(app).post('/api/participant/login').send({ discordHandle: 'alice', passcode: 'NewCode' });
+    assert.equal(newLogin.status, 200);
+
+    const gen = await request(app).post('/api/admin/generate-matches').set('Authorization', `Bearer ${token}`).send({});
+    assert.equal(gen.status, 200);
+
+    const oldTracking = await request(app).post('/api/tracking').send({ discordHandle: 'alice', passcode: 'santa2026' });
+    assert.equal(oldTracking.status, 401);
+    const newTracking = await request(app).post('/api/tracking').send({ discordHandle: 'alice', passcode: 'newcode' });
+    assert.equal(newTracking.status, 200);
+  });
+
+  it('should accept passcodes regardless of case and surrounding whitespace', async () => {
+    assert.equal((await request(app).post('/api/verify-passcode').send({ passcode: '  Santa2026 ' })).status, 200);
+    assert.equal((await signup('carol', 'SANTA2026')).status, 200);
+    assert.equal((await signup('dave', 'santa2027')).status, 401);
+
+    const res = await request(app).post('/api/discord/interactions').send({
+      type: 5,
+      member: { user: { id: '42', username: 'mobileuser', discriminator: '0' } },
+      data: {
+        custom_id: 'secret_santa_signup_modal',
+        components: [
+          { components: [{ custom_id: 'full_name', value: 'Mobile User' }] },
+          { components: [{ custom_id: 'address', value: '2 Phone Rd' }] },
+          { components: [{ custom_id: 'wishlist', value: '' }] },
+          { components: [{ custom_id: 'passcode', value: 'Santa2026' }] },
+        ],
+      },
+    });
+    assert.equal(res.status, 200);
+    assert.doesNotMatch(res.body.data.content, /Invalid signup passcode/);
+  });
+
+  it('should let an admin reopen signups and redraw matches', async () => {
+    assert.equal((await request(app).post('/api/admin/reopen-signups')).status, 401);
+
+    const token = await adminToken();
+    assert.equal((await signup('alice', 'santa2026')).status, 200);
+    assert.equal((await signup('bob', 'santa2026')).status, 200);
+
+    const gen = await request(app).post('/api/admin/generate-matches').set('Authorization', `Bearer ${token}`).send({});
+    assert.equal(gen.status, 200);
+    assert.equal((await request(app).post('/api/tracking').send({ discordHandle: 'alice', passcode: 'santa2026' })).status, 200);
+    assert.equal((await signup('carol', 'santa2026')).status, 400);
+
+    const reopen = await request(app).post('/api/admin/reopen-signups').set('Authorization', `Bearer ${token}`);
+    assert.equal(reopen.status, 200);
+    assert.equal(reopen.body.success, true);
+
+    const matchCount = db.prepare('SELECT COUNT(*) as count FROM matches').get() as { count: number };
+    const trackingCount = db.prepare('SELECT COUNT(*) as count FROM tracking_info').get() as { count: number };
+    assert.equal(matchCount.count, 0);
+    assert.equal(trackingCount.count, 0);
+
+    const settings = await request(app).get('/api/settings');
+    assert.equal(settings.body.data.isMatchingComplete, false);
+
+    assert.equal((await signup('carol', 'santa2026')).status, 200);
+
+    const redraw = await request(app).post('/api/admin/generate-matches').set('Authorization', `Bearer ${token}`).send({});
+    assert.equal(redraw.status, 200);
+    assert.equal(redraw.body.data.length, 3);
+  });
 });
