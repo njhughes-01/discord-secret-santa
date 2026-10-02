@@ -219,6 +219,57 @@ describe('Secret Santa API Integration & Security Tests', () => {
     assert.equal(redraw.body.data.length, 3);
   });
 
+  it('should delete submitted tracking info when an admin redraws matches', async () => {
+    const token = await adminToken();
+    assert.equal((await signup('alice', 'santa2026')).status, 200);
+    assert.equal((await signup('bob', 'santa2026')).status, 200);
+    const generate = () => request(app).post('/api/admin/generate-matches').set('Authorization', `Bearer ${token}`).send({});
+    const trackingCount = () => (db.prepare('SELECT COUNT(*) as count FROM tracking_info').get() as { count: number }).count;
+
+    assert.equal((await generate()).status, 200);
+    assert.equal((await request(app).post('/api/tracking').send({ discordHandle: 'alice', passcode: 'santa2026' })).status, 200);
+    assert.equal(trackingCount(), 1);
+
+    assert.equal((await generate()).status, 200);
+    assert.equal(trackingCount(), 0);
+  });
+
+  it('should keep the current draw when reopening signups fails part-way', async () => {
+    const token = await adminToken();
+    assert.equal((await signup('alice', 'santa2026')).status, 200);
+    assert.equal((await signup('bob', 'santa2026')).status, 200);
+    assert.equal((await request(app).post('/api/admin/generate-matches').set('Authorization', `Bearer ${token}`).send({})).status, 200);
+    const drawnMatches = matchCount();
+
+    db.exec('DROP TABLE audit_logs');
+    const reopen = await request(app).post('/api/admin/reopen-signups').set('Authorization', `Bearer ${token}`);
+    assert.equal(reopen.status, 500);
+
+    assert.equal(matchCount(), drawnMatches);
+    const matchingComplete = db.prepare('SELECT value FROM settings WHERE key = ?').get('is_matching_complete') as { value: string };
+    assert.equal(matchingComplete.value, 'true');
+  });
+
+  it('should name changed passcode keys in the settings audit log without recording their values', async () => {
+    const token = await adminToken();
+    const newSignupPasscode = 'SignupSecretXyz123';
+    const newAdminPasscode = 'AdminSecretQrs456';
+    const update = await request(app)
+      .put('/api/admin/settings')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ signupPasscode: newSignupPasscode, adminPasscode: newAdminPasscode });
+    assert.equal(update.status, 200);
+
+    const settingsLog = db.prepare('SELECT details FROM audit_logs WHERE action = ?').get('SETTINGS_UPDATED') as { details: string };
+    assert.match(settingsLog.details, /signup_passcode/);
+    assert.match(settingsLog.details, /admin_passcode/);
+
+    const allDetails = (db.prepare('SELECT details FROM audit_logs').all() as { details: string }[]).map((row) => row.details.toLowerCase());
+    for (const secret of [newSignupPasscode, newAdminPasscode]) {
+      assert.ok(allDetails.every((details) => !details.includes(secret.toLowerCase())), `audit log leaked ${secret}`);
+    }
+  });
+
   it('should warn that signups stay closed when reopening after the deadline has passed', async () => {
     const token = await adminToken();
     assert.equal((await signup('alice', 'santa2026')).status, 200);

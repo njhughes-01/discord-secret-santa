@@ -636,21 +636,19 @@ export function createApp(customDb?: DatabaseInstance) {
     }
   });
 
-  // Admin: Reopen Signups (clears current draw so participants can join/update and admin can redraw)
+  // Admin: Reopen Signups (clears current draw so participants can join/update and admin can redraw;
+  // new signups still require an open (future or unset) signup deadline)
   app.post('/api/admin/reopen-signups', requireAdminAuth, (req: Request, res: Response, next: NextFunction) => {
     try {
       const db = getAppDb();
-      let clearedMatches = 0;
 
-      db.transaction(() => {
-        clearedMatches = db.prepare('DELETE FROM matches').run().changes;
+      const isDeadlinePassed = db.transaction(() => {
+        const clearedMatches = db.prepare('DELETE FROM matches').run().changes;
         db.prepare('DELETE FROM tracking_info').run();
         db.prepare('UPDATE settings SET value = ? WHERE key = ?').run('false', 'is_matching_complete');
+        logAudit(db, 'SIGNUPS_REOPENED', `Admin reopened signups and cleared ${clearedMatches} matches`, req.ip, 'warn');
+        return isSignupDeadlinePassed(db);
       })();
-
-      logAudit(db, 'SIGNUPS_REOPENED', `Admin reopened signups and cleared ${clearedMatches} matches`, req.ip, 'warn');
-
-      const isDeadlinePassed = isSignupDeadlinePassed(db);
 
       res.json({
         success: true,
