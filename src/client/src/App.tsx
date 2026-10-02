@@ -123,7 +123,7 @@ export default function App() {
               )}
 
               {activeTab === 'admin' && (
-                <AdminDashboard />
+                <AdminDashboard onEventStateChange={fetchSettings} />
               )}
             </>
           )}

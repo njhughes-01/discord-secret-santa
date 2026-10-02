@@ -42,7 +42,11 @@ const localDatetimeStringToIso = (localStr?: string) => {
   return d.toISOString();
 };
 
-export const AdminDashboard: React.FC = () => {
+interface AdminDashboardProps {
+  onEventStateChange: () => void;
+}
+
+export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onEventStateChange }) => {
   const [adminToken, setAdminToken] = useState<string | null>(() => localStorage.getItem('admin_token'));
   const [adminPasscode, setAdminPasscode] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -198,6 +202,7 @@ export const AdminDashboard: React.FC = () => {
       if (data.success) {
         alert(data.message);
         fetchAdminData();
+        onEventStateChange();
       } else {
         alert('Error: ' + data.error);
       }
@@ -241,6 +246,7 @@ export const AdminDashboard: React.FC = () => {
       if (data.success) {
         alert(data.message);
         fetchAdminData();
+        onEventStateChange();
       } else {
         alert('Error: ' + data.error);
       }

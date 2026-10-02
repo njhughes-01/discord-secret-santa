@@ -32,6 +32,8 @@ Copy `.env.example` to `.env` and paste your tunnel token:
 cp .env.example .env
 ```
 
+`ADMIN_PASSCODE` and `SIGNUP_PASSCODE` only seed a brand-new database; after first start, change passcodes in **Admin → Settings**.
+
 ### Step 3: Launch with Docker Compose
 ```bash
 docker compose up -d

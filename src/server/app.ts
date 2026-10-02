@@ -15,6 +15,7 @@ import { sendDiscordAnnouncement } from './webhook.js';
 import { handleDiscordInteractions } from './discordInteractions.js';
 import { registerDiscordCommandsWithApi } from './discordCommandRegister.js';
 import { isValidSignupPasscode } from './passcode.js';
+import { isSignupDeadlinePassed } from './signupDeadline.js';
 import {
   Participant,
   Match,
@@ -209,14 +210,9 @@ export function createApp(customDb?: DatabaseInstance) {
         return res.status(401).json({ success: false, error: 'Invalid signup credentials.' });
       }
 
-      // Check deadline
-      const deadlineRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('signup_deadline') as DbSettingRow;
-      if (deadlineRow && deadlineRow.value) {
-        const deadlineDate = new Date(deadlineRow.value);
-        if (new Date() > deadlineDate) {
-          logAudit(db, 'SIGNUP_FAILED', `Signup attempted after deadline by ${discordHandle}`, req.ip, 'warn');
-          return res.status(400).json({ success: false, error: 'Signups are now closed.' });
-        }
+      if (isSignupDeadlinePassed(db)) {
+        logAudit(db, 'SIGNUP_FAILED', `Signup attempted after deadline by ${discordHandle}`, req.ip, 'warn');
+        return res.status(400).json({ success: false, error: 'Signups are now closed.' });
       }
 
       // Check matching complete
@@ -319,8 +315,7 @@ export function createApp(customDb?: DatabaseInstance) {
       const matchingCompleteRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('is_matching_complete') as DbSettingRow;
       const isMatchingComplete = matchingCompleteRow?.value === 'true';
 
-      const deadlineRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('signup_deadline') as DbSettingRow;
-      const isDeadlinePassed = deadlineRow?.value ? new Date() > new Date(deadlineRow.value) : false;
+      const isDeadlinePassed = isSignupDeadlinePassed(db);
 
       const budgetRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('gift_budget') as DbSettingRow;
       const giftBudget = budgetRow?.value || '$25 - $50';
@@ -655,8 +650,7 @@ export function createApp(customDb?: DatabaseInstance) {
 
       logAudit(db, 'SIGNUPS_REOPENED', `Admin reopened signups and cleared ${clearedMatches} matches`, req.ip, 'warn');
 
-      const deadlineRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('signup_deadline') as DbSettingRow | undefined;
-      const isDeadlinePassed = deadlineRow?.value ? new Date() > new Date(deadlineRow.value) : false;
+      const isDeadlinePassed = isSignupDeadlinePassed(db);
 
       res.json({
         success: true,

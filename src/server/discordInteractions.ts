@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { DatabaseInstance } from './db.js';
 import { logAudit } from './logger.js';
 import { isValidSignupPasscode } from './passcode.js';
+import { isSignupDeadlinePassed } from './signupDeadline.js';
 
 interface DbSettingRow {
   value: string;
@@ -183,6 +184,16 @@ function buildTrackingModal(existing?: { carrier: string; tracking_number: strin
   };
 }
 
+function signupDeadlinePassedResponse() {
+  return {
+    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE || 4,
+    data: {
+      flags: 64, // EPHEMERAL
+      content: '🔒 ❌ Secret Santa signups are closed because the signup deadline has passed.',
+    },
+  };
+}
+
 export async function handleDiscordInteractions(req: Request, res: Response, db: DatabaseInstance) {
   // 1. Ed25519 signature verification MUST run first on all incoming requests (including PING)
   if (!(await verifyDiscordRequestSignature(req, db))) {
@@ -235,6 +246,10 @@ export async function handleDiscordInteractions(req: Request, res: Response, db:
               content: '🔒 Secret Santa matches have already been generated for this event! Registrations and updates are now locked.',
             },
           });
+        }
+
+        if (isSignupDeadlinePassed(db)) {
+          return res.json(signupDeadlinePassedResponse());
         }
 
         // Check if user is already registered
@@ -480,7 +495,11 @@ export async function handleDiscordInteractions(req: Request, res: Response, db:
         });
       }
 
-      // Check deadline / lock
+      if (isSignupDeadlinePassed(db)) {
+        return res.json(signupDeadlinePassedResponse());
+      }
+
+      // Check matching lock
       const matchingCompleteRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('is_matching_complete') as DbSettingRow;
       if (matchingCompleteRow && matchingCompleteRow.value === 'true') {
         return res.json({
