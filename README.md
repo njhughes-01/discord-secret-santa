@@ -47,6 +47,8 @@ Your app will be live at `https://santa.lightmedia.club` with 0 exposed host por
 
 - **Reopen Signups** (Admin dashboard) deletes the current matches and all submitted tracking info, and unlocks signups and profile edits. New signups still need an open signup deadline (in the future or unset); if it has passed, set a new one in Settings.
 - **Redraw Secret Santa Matches** (shown once matches exist) replaces every assignment with a fresh draw, deletes submitted tracking info, and re-sends the Discord announcement if a webhook is configured.
+- **Discord name changes**: Discord users are identified by their Discord account, not their username, so a rename is picked up automatically the next time they use a `/secret-santa` command. Web signups are linked to a Discord account the first time someone with the same name uses a command. No database migration is needed: existing participants keep working and are linked as they show up.
+- **Edit name** (Admin → Participants) corrects a participant's Discord name, for example a web signup who has since renamed. The change also updates their matches and tracking info, before or after the draw.
 
 ---
 

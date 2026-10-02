@@ -87,6 +87,8 @@ Uses a cryptographically-secure random Fisher-Yates derangement algorithm:
 - **Commands**:
   - `/secret-santa signup`: Opens an interactive Discord Modal popup for entering shipping details inside Discord. No passcode is required; signups are refused once matches are generated or the signup deadline has passed.
   - `/secret-santa status`: Sends a private ephemeral message showing assigned Secret Santa recipient.
+- **Discord identity** (`src/server/discordIdentity.ts`): every command finds the caller by `discord_id`. A participant without a `discord_id` (web signup) is linked the first time a Discord user with the same name (case- and whitespace-insensitive) runs a command; rows already linked to another Discord account are never matched by name, because Discord usernames can be reused. When a linked user's Discord name changes, the new name is written to `participants`, `matches` and `tracking_info` in one transaction (`DISCORD_HANDLE_SYNCED`); if another participant already holds that name the rename is skipped and logged as a warning. Assignments are looked up by `matches.giver_id`. This uses the existing columns, so existing databases need no migration.
+- **Admin name edits** (`PUT /api/admin/participants/:id`, body `{ discordHandle }`): renames a participant and its copies in `matches` and `tracking_info` in one transaction. Returns 404 for an unknown participant and 409 when another participant already has that name (case-insensitive). It never changes `discord_id`, so a Discord-linked participant is re-synced to their real Discord name on their next command.
 - **Announcement Webhooks**: Triggers rich markdown embeds on match generation or test requests (`POST /api/admin/test-webhook`).
 
 ---
