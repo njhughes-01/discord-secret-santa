@@ -5,7 +5,7 @@ import { ParticipantPortal } from './components/ParticipantPortal';
 import { TrackingForm } from './components/TrackingForm';
 import { AdminDashboard } from './components/AdminDashboard';
 import { PasscodeGate } from './components/PasscodeGate';
-import { AppSettings } from '../shared/types';
+import { AppSettings } from '@shared/types';
 import { HeartHandshake, Lock } from 'lucide-react';
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: string }> {

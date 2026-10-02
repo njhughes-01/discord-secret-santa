@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Gift, Lock, User, MapPin, Heart, AlertCircle, CheckCircle2, Calendar } from 'lucide-react';
-import { AppSettings } from '../../shared/types';
+import { AppSettings } from '@shared/types';
 
 interface SignupFormProps {
   settings: AppSettings | null;

@@ -15,7 +15,7 @@ import {
   Package,
   Calendar
 } from 'lucide-react';
-import { ParticipantPortalData } from '../../shared/types';
+import { ParticipantPortalData } from '@shared/types';
 
 export const ParticipantPortal: React.FC = () => {
   const [discordHandle, setDiscordHandle] = useState('');

@@ -21,7 +21,7 @@ import {
   Gift,
   Pencil
 } from 'lucide-react';
-import { Participant, Match, TrackingInfo, AuditLog } from '../../shared/types';
+import { Participant, Match, TrackingInfo, AuditLog } from '@shared/types';
 import { DiscordSetupGuide } from './DiscordSetupGuide';
 
 const isoToLocalDatetimeString = (isoStr?: string) => {
