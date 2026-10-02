@@ -3,7 +3,6 @@ import { verifyKey, InteractionType, InteractionResponseType } from 'discord-int
 import { v4 as uuidv4 } from 'uuid';
 import { DatabaseInstance } from './db.js';
 import { logAudit } from './logger.js';
-import { isValidSignupPasscode } from './passcode.js';
 import { isSignupDeadlinePassed } from './signupDeadline.js';
 
 interface DbSettingRow {
@@ -109,19 +108,6 @@ function buildSignupModal(existing?: DbParticipantRow) {
               required: false,
               placeholder: 'Favorite colors, sizes, Steam wishlist link...',
               value: existing?.wishlist || '',
-            },
-          ],
-        },
-        {
-          type: 1,
-          components: [
-            {
-              type: 4,
-              custom_id: 'passcode',
-              label: 'Event Signup Passcode',
-              style: 1,
-              required: true,
-              placeholder: 'Passcode provided by mod',
             },
           ],
         },
@@ -482,18 +468,6 @@ export async function handleDiscordInteractions(req: Request, res: Response, db:
       const fullName = String(getVal('full_name')).trim();
       const address = String(getVal('address')).trim();
       const wishlist = String(getVal('wishlist')).trim();
-      const passcode = String(getVal('passcode')).trim();
-
-      // Check passcode
-      if (!isValidSignupPasscode(db, passcode)) {
-        return res.json({
-          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE || 4,
-          data: {
-            flags: 64, // EPHEMERAL
-            content: '🔒 ❌ Invalid signup passcode. Please check with your server mod.',
-          },
-        });
-      }
 
       if (isSignupDeadlinePassed(db)) {
         return res.json(signupDeadlinePassedResponse());

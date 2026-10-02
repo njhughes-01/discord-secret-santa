@@ -44,7 +44,7 @@ describe('Secret Santa API Integration & Security Tests', () => {
     assert.equal(res.body.type, 1);
   });
 
-  it('should handle Discord Modal Signup interaction with ephemeral flag 64 and save participant', async () => {
+  it('should handle Discord Modal Signup without a passcode, with ephemeral flag 64, and save participant', async () => {
     const res = await request(app).post('/api/discord/interactions').send({
       type: 5,
       member: { user: { id: '123456789', username: 'discorduser', discriminator: '0' } },
@@ -54,7 +54,6 @@ describe('Secret Santa API Integration & Security Tests', () => {
           { components: [{ custom_id: 'full_name', value: 'Discord User' }] },
           { components: [{ custom_id: 'address', value: '777 Discord Way' }] },
           { components: [{ custom_id: 'wishlist', value: 'Gaming Mouse' }] },
-          { components: [{ custom_id: 'passcode', value: 'santa2026' }] },
         ],
       },
     });
@@ -154,6 +153,12 @@ describe('Secret Santa API Integration & Security Tests', () => {
     assert.equal((await request(app).post('/api/verify-passcode').send({ passcode: '  Santa2026 ' })).status, 200);
     assert.equal((await signup('carol', 'SANTA2026')).status, 200);
     assert.equal((await signup('dave', 'santa2027')).status, 401);
+  });
+
+  it('should accept Discord signups without the event passcode even after an admin changes it', async () => {
+    const token = await adminToken();
+    const update = await request(app).put('/api/admin/settings').set('Authorization', `Bearer ${token}`).send({ signupPasscode: 'NewCode' });
+    assert.equal(update.status, 200);
 
     const res = await request(app).post('/api/discord/interactions').send({
       type: 5,
@@ -164,12 +169,12 @@ describe('Secret Santa API Integration & Security Tests', () => {
           { components: [{ custom_id: 'full_name', value: 'Mobile User' }] },
           { components: [{ custom_id: 'address', value: '2 Phone Rd' }] },
           { components: [{ custom_id: 'wishlist', value: '' }] },
-          { components: [{ custom_id: 'passcode', value: 'Santa2026' }] },
         ],
       },
     });
     assert.equal(res.status, 200);
-    assert.doesNotMatch(res.body.data.content, /Invalid signup passcode/);
+    assert.match(res.body.data.content, /Successfully signed up/);
+    assert.ok(db.prepare('SELECT id FROM participants WHERE discord_id = ?').get('42'));
   });
 
   it('should let an admin reopen signups and redraw matches', async () => {
@@ -248,7 +253,6 @@ describe('Secret Santa API Integration & Security Tests', () => {
             { components: [{ custom_id: 'full_name', value: 'Late User' }] },
             { components: [{ custom_id: 'address', value: '3 Late Ave' }] },
             { components: [{ custom_id: 'wishlist', value: '' }] },
-            { components: [{ custom_id: 'passcode', value: 'santa2026' }] },
           ],
         },
       });
@@ -273,6 +277,10 @@ describe('Secret Santa API Integration & Security Tests', () => {
     const openCommand = await signupCommand();
     assert.equal(openCommand.body.type, 9);
     assert.equal(openCommand.body.data.custom_id, 'secret_santa_signup_modal');
+    const modalFieldIds = openCommand.body.data.components.flatMap((row: { components: { custom_id: string }[] }) =>
+      row.components.map((field) => field.custom_id)
+    );
+    assert.deepEqual(modalFieldIds, ['full_name', 'address', 'wishlist']);
 
     const openModal = await signupModal();
     assert.match(openModal.body.data.content, /Successfully signed up/);
