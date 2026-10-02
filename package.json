@@ -11,7 +11,7 @@
     "build:server": "tsc -p tsconfig.server.json",
     "build": "node scripts/build.js",
     "start": "node dist/server/index.js",
-    "test": "tsx --test src/server/__tests__/matcher.test.ts src/server/__tests__/api.test.ts src/server/__tests__/discordSig.test.ts e2e/api.spec.ts",
+    "test": "tsx --test src/server/__tests__/matcher.test.ts src/server/__tests__/api.test.ts src/server/__tests__/passcode.test.ts src/server/__tests__/discordSig.test.ts e2e/api.spec.ts",
     "register-discord-commands": "node scripts/register-discord-commands.js",
     "test:watch": "vitest"
   },
