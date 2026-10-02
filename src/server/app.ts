@@ -16,6 +16,7 @@ import { handleDiscordInteractions } from './discordInteractions.js';
 import { registerDiscordCommandsWithApi } from './discordCommandRegister.js';
 import { isValidSignupPasscode } from './passcode.js';
 import { isSignupDeadlinePassed } from './signupDeadline.js';
+import { isHandleTakenByOtherParticipant, renameParticipantHandle } from './discordIdentity.js';
 import {
   Participant,
   Match,
@@ -35,6 +36,8 @@ interface CountRow {
 
 // Dummy hash for constant-time comparison when handle/user is not found
 const DUMMY_HASH = '$2a$10$e7f0/bKxJbH7k9J1L6W8.e1vJ3Q9Z2M4X7Y5Z8A1B3C5D7E9F1G3H';
+
+const MAX_DISCORD_HANDLE_LENGTH = 64;
 
 export function createApp(customDb?: DatabaseInstance) {
   const app = express();
@@ -142,8 +145,8 @@ export function createApp(customDb?: DatabaseInstance) {
   app.get('/robots.txt', robotsTxtHandler);
 
   // Discord Interactions Webhook Endpoint (Slash Commands & Modals)
-  app.post('/api/discord/interactions', (req: Request, res: Response) => {
-    handleDiscordInteractions(req, res, getAppDb());
+  app.post('/api/discord/interactions', (req: Request, res: Response, next: NextFunction) => {
+    handleDiscordInteractions(req, res, getAppDb()).catch(next);
   });
 
   // Public API: Verify Event Passcode
@@ -506,6 +509,40 @@ export function createApp(customDb?: DatabaseInstance) {
       `).all() as Participant[];
 
       res.json({ success: true, data: rows });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Admin: Edit a participant's Discord name (also rewrites the copies held by matches and tracking info)
+  app.put('/api/admin/participants/:id', requireAdminAuth, (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const db = getAppDb();
+      const participantId = String(req.params.id);
+      const { discordHandle } = req.body || {};
+      const newHandle = typeof discordHandle === 'string' ? discordHandle.trim() : '';
+
+      if (!newHandle || newHandle.length > MAX_DISCORD_HANDLE_LENGTH) {
+        return res.status(400).json({ success: false, error: `Discord name is required and must be at most ${MAX_DISCORD_HANDLE_LENGTH} characters.` });
+      }
+
+      const result = db.transaction(() => {
+        const participant = db.prepare('SELECT discord_handle FROM participants WHERE id = ?').get(participantId) as { discord_handle: string } | undefined;
+        if (!participant) return 'not_found' as const;
+        if (isHandleTakenByOtherParticipant(db, newHandle, participantId)) return 'taken' as const;
+
+        renameParticipantHandle(db, participantId, newHandle);
+        logAudit(db, 'PARTICIPANT_HANDLE_EDITED', `Admin renamed participant ${participant.discord_handle} to ${newHandle}`, req.ip);
+        return 'renamed' as const;
+      })();
+
+      if (result === 'not_found') {
+        return res.status(404).json({ success: false, error: 'Participant not found.' });
+      }
+      if (result === 'taken') {
+        return res.status(409).json({ success: false, error: `Another participant already uses the Discord name ${newHandle}.` });
+      }
+      res.json({ success: true, message: `Discord name updated to ${newHandle}.` });
     } catch (err) {
       next(err);
     }
