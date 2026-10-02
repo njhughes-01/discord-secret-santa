@@ -18,7 +18,8 @@ import {
   DollarSign,
   Radio,
   Send,
-  Gift
+  Gift,
+  Pencil
 } from 'lucide-react';
 import { Participant, Match, TrackingInfo, AuditLog } from '../../shared/types';
 import { DiscordSetupGuide } from './DiscordSetupGuide';
@@ -252,6 +253,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onEventStateChan
       }
     } catch (err) {
       alert('Failed to reopen signups.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditParticipantName = async (participant: Participant) => {
+    if (!adminToken) return;
+    const input = prompt(`New Discord name for ${participant.discordHandle}:`, participant.discordHandle);
+    const discordHandle = input?.trim();
+    if (!discordHandle || discordHandle === participant.discordHandle) return;
+    setLoading(true);
+
+    try {
+      const res = await fetch(`/api/admin/participants/${encodeURIComponent(participant.id)}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({ discordHandle }),
+      });
+      if (res.status === 401) {
+        handleLogout();
+        setLoginError('Session expired. Please log in with your Admin Passcode.');
+        return;
+      }
+      const data = await res.json();
+      if (data.success) {
+        fetchAdminData();
+      } else {
+        alert('Error: ' + data.error);
+      }
+    } catch (err) {
+      alert('Failed to update participant name.');
     } finally {
       setLoading(false);
     }
@@ -648,6 +683,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onEventStateChan
                   <th className="px-4 py-3">Shipping Address</th>
                   <th className="px-4 py-3">Wishlist</th>
                   <th className="px-4 py-3">Signed Up</th>
+                  <th className="px-4 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700/60">
@@ -658,6 +694,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onEventStateChan
                     <td className="px-4 py-3 whitespace-pre-line font-mono text-xs text-slate-300">{p.address}</td>
                     <td className="px-4 py-3 text-xs text-slate-400">{p.wishlist || '—'}</td>
                     <td className="px-4 py-3 text-xs text-slate-400">{new Date(p.createdAt).toLocaleDateString()}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => handleEditParticipantName(p)}
+                        disabled={loading}
+                        className="text-xs text-slate-300 hover:text-white bg-slate-900/80 border border-slate-700 hover:border-slate-500 disabled:opacity-50 px-2.5 py-1 rounded-lg flex items-center space-x-1"
+                        title="Edit Discord name"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        <span>Edit name</span>
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
