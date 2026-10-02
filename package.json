@@ -11,7 +11,7 @@
     "build:server": "tsc -p tsconfig.server.json",
     "build": "node scripts/build.js",
     "start": "node dist/server/index.js",
-    "test": "tsx --test src/server/__tests__/matcher.test.ts src/server/__tests__/api.test.ts src/server/__tests__/discordSig.test.ts e2e/api.spec.ts",
+    "test": "tsx --test src/server/__tests__/matcher.test.ts src/server/__tests__/api.test.ts src/server/__tests__/passcode.test.ts src/server/__tests__/discordSig.test.ts src/server/__tests__/discordIdentity.test.ts e2e/api.spec.ts",
     "register-discord-commands": "node scripts/register-discord-commands.js",
     "test:watch": "vitest"
   },
@@ -43,13 +43,17 @@
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^6.1.1",
     "autoprefixer": "^10.4.20",
-    "esbuild": "^0.25.0",
+    "esbuild": "^0.28.2",
     "postcss": "^8.5.2",
     "supertest": "^7.2.1",
     "tailwindcss": "^3.4.19",
     "tsx": "^4.19.3",
     "typescript": "^5.9.3",
     "vite": "^8.2.2",
-    "vitest": "^3.2.7"
+    "vitest": "^4.1.11"
+  },
+  "allowScripts": {
+    "better-sqlite3": true,
+    "esbuild": true
   }
 }

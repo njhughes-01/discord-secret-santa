@@ -46,6 +46,8 @@ Discord Secret Santa is a secure, privacy-first, zero-exposure web application a
 
 5. **Passcode Gate Wall**:
    - Unauthenticated web visitors see only an Event Passcode Gate. No signup forms or participant details are rendered until the passcode (`santa2026`) is verified.
+   - Web signup, participant login/profile updates and tracking submissions re-check the passcode on the server. Passcodes are case-insensitive and whitespace-tolerant (NFKC-normalized, trimmed and lowercased at compare time).
+   - Discord signup does not ask for the passcode: anyone who can run the slash command is in the drawing.
 
 6. **100% Ephemeral Discord Messages (`flags: 64`)**:
    - All Discord Slash Commands (`/secret-santa status`, `/secret-santa signup`) reply with `data.flags = 64` (EPHEMERAL). Responses render exclusively on the caller's private Discord client.
@@ -72,12 +74,21 @@ Uses a cryptographically-secure random Fisher-Yates derangement algorithm:
 
 ---
 
+## 🔁 Reopen Signups & Redraw
+
+- **Reopen Signups** (`POST /api/admin/reopen-signups`): in one transaction, deletes all matches and tracking info and sets `is_matching_complete` to `false`, so participants can sign up or edit their details again. New signups still require an open (future or unset) signup deadline; the response flags when the deadline has already passed.
+- **Redraw** (`POST /api/admin/generate-matches` while matches exist): replaces every match with a fresh draw and deletes all submitted tracking info. The Discord announcement is re-sent only if a webhook URL is configured.
+
+---
+
 ## 🤖 Discord Slash Commands & Webhooks
 
 - **Webhook Endpoint**: `POST /api/discord/interactions`
 - **Commands**:
-  - `/secret-santa signup`: Opens an interactive Discord Modal popup for entering shipping details inside Discord.
+  - `/secret-santa signup`: Opens an interactive Discord Modal popup for entering shipping details inside Discord. No passcode is required; signups are refused once matches are generated or the signup deadline has passed.
   - `/secret-santa status`: Sends a private ephemeral message showing assigned Secret Santa recipient.
+- **Discord identity** (`src/server/discordIdentity.ts`): every command finds the caller by `discord_id`. A participant without a `discord_id` (web signup) is linked the first time a Discord user with the same name (case- and whitespace-insensitive) runs a command; rows already linked to another Discord account are never matched by name, because Discord usernames can be reused. When a linked user's Discord name changes, the new name is written to `participants`, `matches` and `tracking_info` in one transaction (`DISCORD_HANDLE_SYNCED`); if another participant already holds that name the rename is skipped and logged as a warning. Assignments are looked up by `matches.giver_id`. This uses the existing columns, so existing databases need no migration.
+- **Admin name edits** (`PUT /api/admin/participants/:id`, body `{ discordHandle }`): renames a participant and its copies in `matches` and `tracking_info` in one transaction. Returns 404 for an unknown participant and 409 when another participant already has that name (case-insensitive). It never changes `discord_id`, so a Discord-linked participant is re-synced to their real Discord name on their next command.
 - **Announcement Webhooks**: Triggers rich markdown embeds on match generation or test requests (`POST /api/admin/test-webhook`).
 
 ---

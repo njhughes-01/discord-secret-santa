@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Gift, Lock, User, MapPin, Heart, AlertCircle, CheckCircle2, Calendar } from 'lucide-react';
-import { AppSettings } from '../../shared/types';
+import { AppSettings } from '@shared/types';
 
 interface SignupFormProps {
   settings: AppSettings | null;
@@ -256,9 +256,13 @@ export const SignupForm: React.FC<SignupFormProps> = ({ settings, onSignupSucces
               <div className="relative">
                 <Lock className="w-5 h-5 text-slate-400 absolute left-3 top-2.5" />
                 <input
-                  type="password"
+                  type="text"
+                  autoComplete="off"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   required
-                  placeholder="Provided by server mod / admin"
+                  placeholder="Current event passcode from your server mod"
                   value={passcode}
                   onChange={(e) => setPasscode(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm"

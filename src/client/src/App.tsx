@@ -5,7 +5,7 @@ import { ParticipantPortal } from './components/ParticipantPortal';
 import { TrackingForm } from './components/TrackingForm';
 import { AdminDashboard } from './components/AdminDashboard';
 import { PasscodeGate } from './components/PasscodeGate';
-import { AppSettings } from '../shared/types';
+import { AppSettings } from '@shared/types';
 import { HeartHandshake, Lock } from 'lucide-react';
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: string }> {
@@ -67,6 +67,29 @@ export default function App() {
     fetchSettings();
   }, []);
 
+  // Re-check the remembered event passcode so visitors are sent back to the gate
+  // once an admin changes it. A failed check fails open: the stored code stays,
+  // and every passcode-protected API route still validates it server-side.
+  useEffect(() => {
+    const stored = localStorage.getItem('event_passcode');
+    if (!stored) return;
+
+    fetch('/api/verify-passcode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passcode: stored }),
+    })
+      .then((res) => {
+        if (res.status === 401) {
+          localStorage.removeItem('event_passcode');
+          setEventPasscode(null);
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not re-verify the remembered event passcode', err);
+      });
+  }, []);
+
   const handlePasscodeSuccess = (code: string) => {
     setEventPasscode(code);
     localStorage.setItem('event_passcode', code);
@@ -103,7 +126,7 @@ export default function App() {
               )}
 
               {activeTab === 'admin' && (
-                <AdminDashboard />
+                <AdminDashboard onEventStateChange={fetchSettings} />
               )}
             </>
           )}

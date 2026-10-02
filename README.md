@@ -8,8 +8,8 @@ A self-setup, zero-exposure Secret Santa web application & Discord bot built wit
 
 - **Zero Host Port Exposure**: Runs with 0 open host ports using **Cloudflare Tunnel (`cloudflared`)**. No Caddy or Nginx reverse proxies required!
 - **Anti-Robot Shielding**: Includes `X-Robots-Tag: noindex, nofollow`, `robots.txt` Disallow: `/`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`.
-- **Passcode Access Gate**: Web interface requires an Event Passcode (`santa2026`) before rendering signup forms or participant data.
-- **Discord Bot Slash Commands & Modals**: Native `/secret-santa signup` and `/secret-santa status` interactions with 100% ephemeral privacy (`flags: 64`).
+- **Passcode Access Gate**: Web interface requires an Event Passcode (`santa2026`) before rendering signup forms or participant data. Passcodes are case-insensitive and ignore surrounding whitespace.
+- **Discord Bot Slash Commands & Modals**: Native `/secret-santa signup` and `/secret-santa status` interactions with 100% ephemeral privacy (`flags: 64`). Discord signup needs no passcode: anyone who can run the command is in the drawing.
 - **Cryptographic Matcher**: Fisher-Yates derangement algorithm guaranteeing no participant is assigned to themselves.
 
 ---
@@ -32,12 +32,23 @@ Copy `.env.example` to `.env` and paste your tunnel token:
 cp .env.example .env
 ```
 
+`ADMIN_PASSCODE` and `SIGNUP_PASSCODE` only seed a brand-new database; after first start, change passcodes in **Admin → Settings**.
+
 ### Step 3: Launch with Docker Compose
 ```bash
 docker compose up -d
 ```
 
 Your app will be live at `https://santa.lightmedia.club` with 0 exposed host ports!
+
+---
+
+## 🎅 Running the Event
+
+- **Reopen Signups** (Admin dashboard) deletes the current matches and all submitted tracking info, and unlocks signups and profile edits. New signups still need an open signup deadline (in the future or unset); if it has passed, set a new one in Settings.
+- **Redraw Secret Santa Matches** (shown once matches exist) replaces every assignment with a fresh draw, deletes submitted tracking info, and re-sends the Discord announcement if a webhook is configured.
+- **Discord name changes**: Discord users are identified by their Discord account, not their username, so a rename is picked up automatically the next time they use a `/secret-santa` command. Web signups are linked to a Discord account the first time someone with the same name uses a command. No database migration is needed: existing participants keep working and are linked as they show up.
+- **Edit name** (Admin → Participants) corrects a participant's Discord name, for example a web signup who has since renamed. The change also updates their matches and tracking info, before or after the draw.
 
 ---
 
