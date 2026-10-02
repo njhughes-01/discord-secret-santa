@@ -68,7 +68,8 @@ export default function App() {
   }, []);
 
   // Re-check the remembered event passcode so visitors are sent back to the gate
-  // (and learn the new code) after an admin changes it.
+  // once an admin changes it. A failed check fails open: the stored code stays,
+  // and every passcode-protected API route still validates it server-side.
   useEffect(() => {
     const stored = localStorage.getItem('event_passcode');
     if (!stored) return;
@@ -84,7 +85,9 @@ export default function App() {
           setEventPasscode(null);
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.warn('Could not re-verify the remembered event passcode', err);
+      });
   }, []);
 
   const handlePasscodeSuccess = (code: string) => {

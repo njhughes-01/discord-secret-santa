@@ -219,7 +219,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onEventStateChan
       alert('At least 2 registered participants are required to generate matches.');
       return;
     }
-    if (matches.length > 0 && !confirm('Redraw matches? This replaces every current assignment, deletes all submitted tracking info, and sends the Discord announcement again.')) {
+    if (matches.length > 0 && !confirm('Redraw matches? This replaces every current assignment, deletes all submitted tracking info, and re-sends the Discord announcement if a webhook is configured.')) {
       return;
     }
     setShowMatchModal(true);
