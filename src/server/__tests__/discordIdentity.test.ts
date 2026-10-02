@@ -7,6 +7,7 @@ import request from 'supertest';
 import Database from 'better-sqlite3';
 import { createApp } from '../app.js';
 import { getDb } from '../db.js';
+import { postDiscordInteraction } from './discordTestSigning.js';
 
 type DiscordMember = { user: { id: string; username: string; discriminator: string } };
 
@@ -30,7 +31,7 @@ describe('Discord identity: renames, account linking and admin name edits', () =
     db.close();
   });
 
-  const interact = (body: object) => request(app).post('/api/discord/interactions').send(body);
+  const interact = (body: object) => postDiscordInteraction(app, body);
   const command = (member: DiscordMember, subCommand: string) =>
     interact({ type: 2, member, data: { name: 'secret-santa', options: [{ name: subCommand }] } });
   const button = (member: DiscordMember, customId: string) => interact({ type: 3, member, data: { custom_id: customId } });
@@ -401,7 +402,7 @@ describe('Existing production database compatibility', () => {
     try {
       const app = createApp(db);
       const interact = (member: DiscordMember) =>
-        request(app).post('/api/discord/interactions').send({ type: 2, member, data: { name: 'secret-santa', options: [{ name: 'status' }] } });
+        postDiscordInteraction(app, { type: 2, member, data: { name: 'secret-santa', options: [{ name: 'status' }] } });
 
       assert.match((await interact(discordMember('222', 'webuser'))).body.data.content, /Discord User \(@discorduser\)/);
       assert.match((await interact(discordMember('111', 'discorduser_2026'))).body.data.content, /Web User \(@webuser\)/);

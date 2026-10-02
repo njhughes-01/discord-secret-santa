@@ -84,6 +84,7 @@ Uses a cryptographically-secure random Fisher-Yates derangement algorithm:
 ## 🤖 Discord Slash Commands & Webhooks
 
 - **Webhook Endpoint**: `POST /api/discord/interactions`
+- **Request signatures**: every interaction, including Discord's PING, must carry `X-Signature-Ed25519` and `X-Signature-Timestamp` headers with a valid Ed25519 signature over the timestamp plus the raw request body, checked against `DISCORD_PUBLIC_KEY` (or the Discord public key in Admin Settings). Anything else, including a request with no signature headers, gets HTTP 401 and a `DISCORD_SIG_FAILED` audit log entry. If no public key is configured, every request is rejected (`DISCORD_KEY_MISSING`).
 - **Commands**:
   - `/secret-santa signup`: Opens an interactive Discord Modal popup for entering shipping details inside Discord. No passcode is required; signups are refused once matches are generated or the signup deadline has passed.
   - `/secret-santa status`: Sends a private ephemeral message showing assigned Secret Santa recipient.
