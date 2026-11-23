@@ -49,8 +49,8 @@ Discord Secret Santa is a secure, privacy-first, zero-exposure web application a
    - Web signup, participant login/profile updates and tracking submissions re-check the passcode on the server. Passcodes are case-insensitive and whitespace-tolerant (NFKC-normalized, trimmed and lowercased at compare time).
    - Discord signup does not ask for the passcode: anyone who can run the slash command is in the drawing.
 
-6. **100% Ephemeral Discord Messages (`flags: 64`)**:
-   - All Discord Slash Commands (`/secret-santa signup`, `status`, `tracking`, `info`) reply with `data.flags = 64` (EPHEMERAL). Responses render exclusively on the caller's private Discord client.
+6. **Ephemeral Discord Messages (`flags: 64`)**:
+   - All Discord Slash Commands except `participants-public` (`/secret-santa signup`, `status`, `tracking`, `participants`, `info`) reply with `data.flags = 64` (EPHEMERAL). Responses render exclusively on the caller's private Discord client.
 
 ---
 
@@ -90,7 +90,9 @@ Uses a cryptographically-secure random Fisher-Yates derangement algorithm:
   - `/secret-santa status`: Sends a private ephemeral message showing assigned Secret Santa recipient.
   - `/secret-santa tracking`: Opens a Discord Modal (carrier, tracking number or link, ship date) once matches exist; saves or updates the giver's tracking info, the same data as the web form. Alias: `ship`.
   - `/secret-santa info`: Private summary of budget, signup deadline, participant count and the caller's status.
-  - Registration: the admin 1-Click Register button (`POST /api/admin/register-discord-commands`, `src/server/discordCommandRegister.ts`) is the only registration path. It upserts the whole `/secret-santa` command by name, so it always sends all four subcommands.
+  - `/secret-santa participants-public`: Same list and limits as `participants`, but posted as a normal channel message that everyone in the channel can see (`flags: 4`, suppress embeds, instead of `flags: 64`). Handles are flattened to one line and markdown-escaped, so a free-text web signup name cannot add extra lines; masked links are escaped and link previews are suppressed (a bare URL may still show as plain text). Anyone who can run commands in the allowed channel can post it; it never contains assignments.
+  - `/secret-santa participants`: Private, alphabetical list of the Discord names of everyone registered. It never shows real names, addresses, wishlists or who is assigned to whom, and ends with an "…and N more" line if the list would exceed Discord's 2000-character limit.
+  - Registration: the admin 1-Click Register button (`POST /api/admin/register-discord-commands`, `src/server/discordCommandRegister.ts`) is the only registration path. It upserts the whole `/secret-santa` command by name, so it always sends all six subcommands. After upgrading, click it again so Discord learns about `participants` and `participants-public`.
 - **Discord identity** (`src/server/discordIdentity.ts`): every command finds the caller by `discord_id`. A participant without a `discord_id` (web signup) is linked the first time a Discord user with the same name (case- and whitespace-insensitive) runs a command; rows already linked to another Discord account are never matched by name, because Discord usernames can be reused. When a linked user's Discord name changes, the new name is written to `participants`, `matches` and `tracking_info` in one transaction (`DISCORD_HANDLE_SYNCED`); if another participant already holds that name the rename is skipped and logged as a warning. Assignments are looked up by `matches.giver_id`. This uses the existing columns, so existing databases need no migration.
 - **Admin name edits** (`PUT /api/admin/participants/:id`, body `{ discordHandle }`): renames a participant and its copies in `matches` and `tracking_info` in one transaction. Returns 404 for an unknown participant and 409 when another participant already has that name (case-insensitive). It never changes `discord_id`, so a Discord-linked participant is re-synced to their real Discord name on their next command.
 - **Announcement Webhooks**: Triggers rich markdown embeds on match generation or test requests (`POST /api/admin/test-webhook`).

@@ -9,7 +9,7 @@ A self-setup, zero-exposure Secret Santa web application & Discord bot built wit
 - **Zero Host Port Exposure**: Runs with 0 open host ports using **Cloudflare Tunnel (`cloudflared`)**. No Caddy or Nginx reverse proxies required!
 - **Anti-Robot Shielding**: Includes `X-Robots-Tag: noindex, nofollow`, `robots.txt` Disallow: `/`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`.
 - **Passcode Access Gate**: Web interface requires an Event Passcode (`santa2026`) before rendering signup forms or participant data. Passcodes are case-insensitive and ignore surrounding whitespace.
-- **Discord Bot Slash Commands & Modals**: Native `/secret-santa signup`, `status`, `tracking` and `info` interactions with 100% ephemeral privacy (`flags: 64`). Members can submit package tracking from Discord as well as the website. Discord signup needs no passcode: anyone who can run the command is in the drawing. Register the commands with the admin 1-Click Register button.
+- **Discord Bot Slash Commands & Modals**: Native `/secret-santa signup`, `status`, `tracking`, `participants` and `info` interactions with ephemeral privacy (`flags: 64`); `participants-public` is the one command that posts visibly to the channel. Members can submit package tracking from Discord as well as the website. Discord signup needs no passcode: anyone who can run the command is in the drawing. Register the commands with the admin 1-Click Register button.
 - **Cryptographic Matcher**: Fisher-Yates derangement algorithm guaranteeing no participant is assigned to themselves.
 
 ---

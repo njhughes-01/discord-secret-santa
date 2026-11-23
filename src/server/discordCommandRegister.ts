@@ -45,6 +45,16 @@ export async function registerDiscordCommandsWithApi(
         description: 'View event details, budget, signup deadline, and total participants',
         type: 1,
       },
+      {
+        name: 'participants',
+        description: 'See everyone who is registered for Secret Santa (no assignments shown)',
+        type: 1,
+      },
+      {
+        name: 'participants-public',
+        description: 'Post the list of registered Secret Santa participants for everyone in the channel to see',
+        type: 1,
+      },
     ],
   };
 

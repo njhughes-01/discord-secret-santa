@@ -81,6 +81,99 @@ describe('Secret Santa API Integration & Security Tests', () => {
     assert.ok(res.body.data.content.includes('Secret Santa Status'));
   });
 
+  it('should list registered participants privately without revealing assignments', async () => {
+    const insert = db.prepare(
+      'INSERT INTO participants (id, discord_id, discord_handle, full_name, address, wishlist, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    );
+    insert.run('p1', '1', 'zed', 'Zed Secret', '1 Hidden Rd', null, new Date().toISOString());
+    insert.run('p2', '2', 'Alice', 'Alice Secret', '2 Hidden Rd', null, new Date().toISOString());
+    db.prepare(
+      'INSERT INTO matches (id, giver_id, giver_handle, giver_name, receiver_id, receiver_handle, receiver_name, receiver_address, receiver_wishlist, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run('m1', 'p1', 'zed', 'Zed Secret', 'p2', 'Alice', 'Alice Secret', '2 Hidden Rd', '', new Date().toISOString());
+
+    const res = await postDiscordInteraction(app, {
+      type: 2,
+      member: { user: { id: '1', username: 'zed', discriminator: '0' } },
+      data: { name: 'secret-santa', options: [{ name: 'participants' }] },
+    });
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.type, 4);
+    assert.equal(res.body.data.flags, 64);
+    const content: string = res.body.data.content;
+    assert.ok(content.includes('Registered Participants (2)'));
+    assert.ok(content.indexOf('Alice') < content.indexOf('zed'));
+    assert.ok(!content.includes('Secret'));
+    assert.ok(!content.includes('Hidden Rd'));
+    assert.ok(!/recipient|assigned/i.test(content));
+  });
+
+  it('should post the participants list publicly only for participants-public and omit the web URL from info', async () => {
+    db.prepare(
+      'INSERT INTO participants (id, discord_id, discord_handle, full_name, address, wishlist, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run('p1', '1', 'alice', 'Alice Secret', '1 Hidden Rd', null, new Date().toISOString());
+    const run = (name: string) =>
+      postDiscordInteraction(app, {
+        type: 2,
+        member: { user: { id: '1', username: 'alice', discriminator: '0' } },
+        data: { name: 'secret-santa', options: [{ name }] },
+      });
+
+    const publicRes = await run('participants-public');
+    assert.equal(publicRes.body.type, 4);
+    assert.equal(publicRes.body.data.flags, 4);
+    assert.ok(publicRes.body.data.content.includes('alice'));
+    assert.ok(!publicRes.body.data.content.includes('Hidden Rd'));
+
+    const privateRes = await run('participants');
+    assert.equal(privateRes.body.data.flags, 64);
+
+    const infoRes = await run('info');
+    assert.equal(infoRes.body.data.flags, 64);
+    assert.ok(!infoRes.body.data.content.includes('lightmedia.club'));
+    assert.ok(!infoRes.body.data.content.includes('Web Portal'));
+  });
+
+  it('should render hostile handles as inert single lines in the participants list', async () => {
+    db.prepare(
+      'INSERT INTO participants (id, discord_id, discord_handle, full_name, address, wishlist, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run('p1', null, 'evil\n# Injected [click](http://evil.example) *bold*', 'Evil', '1 Rd', null, new Date().toISOString());
+
+    const res = await postDiscordInteraction(app, {
+      type: 2,
+      member: { user: { id: '9', username: 'viewer', discriminator: '0' } },
+      data: { name: 'secret-santa', options: [{ name: 'participants-public' }] },
+    });
+
+    const content: string = res.body.data.content;
+    const lines = content.split('\n').filter((line) => line.startsWith('•'));
+    assert.equal(lines.length, 1);
+    assert.ok(!content.includes('\n# Injected'));
+    assert.ok(content.includes('\\[click\\]\\(http://evil.example\\)'));
+    assert.ok(content.includes('\\*bold\\*'));
+    assert.equal(res.body.data.flags, 4);
+  });
+
+  it('should keep the participants list under the Discord message limit', async () => {
+    const insert = db.prepare(
+      'INSERT INTO participants (id, discord_id, discord_handle, full_name, address, wishlist, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    );
+    for (let index = 0; index < 200; index++) {
+      insert.run(`p${index}`, `${index}`, `some_long_discord_username_${index}`, 'Name', 'Addr', null, new Date().toISOString());
+    }
+
+    const res = await postDiscordInteraction(app, {
+      type: 2,
+      member: { user: { id: '1', username: 'x', discriminator: '0' } },
+      data: { name: 'secret-santa', options: [{ name: 'participants' }] },
+    });
+
+    assert.equal(res.status, 200);
+    assert.ok(res.body.data.content.length <= 2000);
+    assert.match(res.body.data.content, /Registered Participants \(200\)/);
+    assert.match(res.body.data.content, /…and \d+ more/);
+  });
+
   it('should reject bot trap payload when honeypot field is filled', async () => {
     const res = await request(app).post('/api/signup').send({
       discordHandle: 'botuser#999',
