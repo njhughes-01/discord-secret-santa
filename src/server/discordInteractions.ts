@@ -174,6 +174,40 @@ function handleTakenResponse() {
   };
 }
 
+const DISCORD_MESSAGE_LIMIT = 2000;
+const SUPPRESS_EMBEDS_FLAG = 4;
+const EPHEMERAL_FLAG = 64;
+
+function toInertSingleLine(handle: string): string {
+  return handle.replace(/\s+/g, ' ').trim().replace(/[\\`*_~|>\[\]()<]/g, '\\$&');
+}
+
+function buildParticipantListContent(handles: string[]): string {
+  if (handles.length === 0) {
+    return '🎄 **Registered Participants (0)**\n\nNo one has registered for Secret Santa yet. Use `/secret-santa signup` to be the first!';
+  }
+
+  const header = `🎄 **Registered Participants (${handles.length})**\n\n`;
+  const lines: string[] = [];
+  let length = header.length;
+
+  for (let index = 0; index < handles.length; index++) {
+    const line = `• ${toInertSingleLine(handles[index])}`;
+    const remaining = handles.length - index;
+    const moreNote = `\n…and ${remaining} more`;
+    const nextLength = length + line.length + (lines.length > 0 ? 1 : 0);
+
+    if (nextLength + (remaining > 1 ? moreNote.length : 0) > DISCORD_MESSAGE_LIMIT) {
+      return `${header}${lines.join('\n')}\n…and ${remaining} more`;
+    }
+
+    lines.push(line);
+    length = nextLength;
+  }
+
+  return `${header}${lines.join('\n')}`;
+}
+
 export async function handleDiscordInteractions(req: Request, res: Response, db: DatabaseInstance) {
   // 1. Ed25519 signature verification MUST run first on all incoming requests (including PING)
   if (!(await verifyDiscordRequestSignature(req, db))) {
@@ -301,6 +335,22 @@ export async function handleDiscordInteractions(req: Request, res: Response, db:
         return res.json(buildTrackingModal(existingTracking));
       }
 
+      if (subCommand === 'participants' || subCommand === 'participants-public') {
+        const rows = db
+          .prepare('SELECT discord_handle FROM participants ORDER BY discord_handle COLLATE NOCASE ASC')
+          .all() as { discord_handle: string }[];
+        const isPublic = subCommand === 'participants-public';
+
+        return res.json({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE || 4,
+          data: {
+            flags: isPublic ? SUPPRESS_EMBEDS_FLAG : EPHEMERAL_FLAG, // public reply is visible but never unfurls links
+            content: buildParticipantListContent(rows.map((row) => row.discord_handle)),
+            allowed_mentions: { parse: [] },
+          },
+        });
+      }
+
       if (subCommand === 'info' || subCommand === 'details' || subCommand === 'help') {
         const countRow = db.prepare('SELECT COUNT(*) as count FROM participants').get() as { count: number };
         const budgetRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('gift_budget') as DbSettingRow | undefined;
@@ -335,7 +385,7 @@ export async function handleDiscordInteractions(req: Request, res: Response, db:
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE || 4,
           data: {
             flags: 64, // EPHEMERAL
-            content: `🎅 **Server Secret Santa 2026 Event Info**\n\n💰 **Gift Budget**: ${giftBudget}\n📅 **Signup Deadline**: ${deadlineStr}\n👥 **Total Registered Participants**: **${totalParticipants} server members**\n🎯 **Event Status**: ${statusLabel}\n\n👤 **Your Status**: ${userStatusLabel}\n🌐 **Web Portal**: https://santa.lightmedia.club\n\n💡 **Available Commands**:\n• \`/secret-santa signup\` — Register or update your shipping info\n• \`/secret-santa status\` — View your assigned gift recipient (private)\n• \`/secret-santa tracking\` — Submit package tracking code & ship date\n• \`/secret-santa info\` — View event details & participant count`,
+            content: `🎅 **Server Secret Santa 2026 Event Info**\n\n💰 **Gift Budget**: ${giftBudget}\n📅 **Signup Deadline**: ${deadlineStr}\n👥 **Total Registered Participants**: **${totalParticipants} server members**\n🎯 **Event Status**: ${statusLabel}\n\n👤 **Your Status**: ${userStatusLabel}\n\n💡 **Available Commands**:\n• \`/secret-santa signup\` — Register or update your shipping info\n• \`/secret-santa status\` — View your assigned gift recipient (private)\n• \`/secret-santa tracking\` — Submit package tracking code & ship date\n• \`/secret-santa participants\` — See who is registered (private, no assignments)\n• \`/secret-santa participants-public\` — Post the registered list for everyone to see\n• \`/secret-santa info\` — View event details & participant count`,
           },
         });
       }
